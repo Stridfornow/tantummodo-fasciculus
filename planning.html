@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Planning</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Drie-koloms layout --------------------------------- */
+    .planning-grid {
+      display: grid;
+      grid-template-columns: 5fr 4fr 4fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ---- Kanban --------------------------------------------- */
+    .kanban-kolom {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    .kanban-kop {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .kanban-kop-naam {
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .kanban-teller {
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .kanban-body { padding: 12px; min-height: 80px; }
+
+    .taak-kaart {
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r-sm);
+      padding: 11px 13px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: box-shadow 0.12s;
+    }
+
+    .taak-kaart:last-child { margin-bottom: 0; }
+    .taak-kaart:hover { box-shadow: var(--shadow-md); }
+    .taak-kaart.verlopen { border-left: 3px solid var(--danger); }
+    .taak-kaart.vandaag  { border-left: 3px solid var(--gold); }
+
+    .taak-titel {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .taak-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .taak-datum {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .taak-datum.urgent { color: var(--danger); font-weight: 600; }
+    .taak-datum.soon   { color: #B07820; font-weight: 600; }
+
+    .taak-vak-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+    }
+
+    /* ---- Toets: middelzware kaart --------------------------- */
+    .taak-kaart.toets-kaart {
+      background: #FEF7E8;
+      border: 1px solid var(--gold-border);
+      border-left: 4px solid var(--gold);
+    }
+
+    .taak-kaart.toets-kaart .taak-titel {
+      font-size: 0.9375rem;
+      font-weight: 600;
+    }
+
+    /* ---- Examen: prominente sectie in kanban ---------------- */
+    .examen-kanban-kaart {
+      background: var(--navy);
+      border-radius: var(--r-sm);
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .examen-kanban-kaart:last-child { margin-bottom: 0; }
+
+    .examen-kanban-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .examen-kanban-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: var(--gold);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .examen-kanban-countdown {
+      margin-left: auto;
+      font-family: var(--display);
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .examen-kanban-naam {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .examen-kanban-meta {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* Sectielabel boven examens in kanban */
+    .kanban-sectie-lbl {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 8px 4px 6px;
+      margin-top: 4px;
+    }
+
+    .kanban-sectie-lbl:first-child { margin-top: 0; padding-top: 0; }
+
+    /* ---- Kalender ------------------------------------------- */
+    .kal-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .kal-maand {
+      font-family: var(--display);
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    .kal-btn {
+      background: none;
+      border: 1px solid var(--card-border);
+      border-radius: var(--r-sm);
+      width: 30px; height: 30px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text-sec);
+      transition: background 0.12s;
+    }
+    .kal-btn:hover { background: var(--bg); }
+
+    .kal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin-bottom: 20px;
+    }
+
+    .kal-dag-naam {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      text-align: center;
+      padding: 4px 0;
+    }
+
+    .kal-dag {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.78rem;
+      border-radius: 6px;
+      cursor: default;
+      position: relative;
+      color: var(--navy);
+    }
+
+    .kal-dag.leeg { color: transparent; }
+    .kal-dag.vandaag { background: var(--navy); color: #fff; font-weight: 600; }
+    .kal-dag.heeft-examen::after {
+      content: '';
+      position: absolute;
+      bottom: 3px;
+      left: 50%; transform: translateX(-50%);
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--gold);
+    }
+    .kal-dag.vandaag.heeft-examen::after { background: #fff; }
+
+    /* Examen-lijst onder de kalender */
+    .examen-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .examen-item:last-child { border-bottom: none; }
+
+    .examen-item-dagen {
+      font-family: var(--display);
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gold);
+      min-width: 36px;
+      text-align: center;
+    }
+    .examen-item-dagen.dringend { color: var(--danger); }
+
+    .examen-item-info { flex: 1; }
+    .examen-item-naam { font-size: 0.875rem; font-weight: 600; color: var(--navy); }
+    .examen-item-datum { font-size: 0.78rem; color: var(--muted); }
+
+    /* ---- Studieplanner -------------------------------------- */
+    .planner-rij {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .planner-rij:last-child { border-bottom: none; }
+
+    .planner-vak-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .planner-vak-naam {
+      flex: 1;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--navy);
+    }
+
+    .planner-uren {
+      font-family: var(--display);
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--gold);
+    }
+
+    .planner-uren-lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .planner-balk {
+      width: 100%;
+      height: 4px;
+      background: var(--card-border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 3px;
+    }
+    .planner-balk-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--gold);
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div style="margin-bottom:32px">
+        <div class="pg-eyebrow">Organisatie</div>
+        <div class="pg-title" style="font-size:2.25rem">Planning</div>
+        <div class="pg-sub">Deadlines, examens en je wekelijks studieschema op één plek.</div>
+      </div>
+
+      <!-- Knoppen rij -->
+      <div style="display:flex;gap:10px;margin-bottom:28px">
+        <button class="btn btn-primary" onclick="openNieuweTaak()">
+          <i class="ph ph-plus"></i> Nieuwe taak
+        </button>
+        <button class="btn btn-ghost" onclick="openNieuwExamen()">
+          <i class="ph ph-calendar-plus"></i> Examen toevoegen
+        </button>
+      </div>
+
+      <!-- Drie kolommen -->
+      <div class="planning-grid">
+
+        <!-- ===== KOLOM 1: KANBAN ===== -->
+        <div>
+          <div class="card-lbl" style="margin-bottom:12px">Taken & Deadlines</div>
+
+          <!-- Te doen -->
+          <div class="kanban-kolom" style="margin-bottom:16px">
+            <div class="kanban-kop">
+              <div class="kanban-kop-naam">
+                <span style="color:var(--text-sec)">○</span>
+                Te doen
+                <span class="kanban-teller" id="teller-todo">0</span>
+              </div>
+            </div>
+            <div class="kanban-body" id="kolom-todo">
+              <div style="color:var(--muted);font-size:.82rem;text-align:center;padding:12px 0">Laden…</div>
+            </div>
+          </div>
+
+          <!-- Bezig -->
+          <div class="kanban-kolom" style="margin-bottom:16px">
+            <div class="kanban-kop">
+              <div class="kanban-kop-naam">
+                <span style="color:var(--gold)">◐</span>
+                Bezig
+                <span class="kanban-teller" id="teller-bezig">0</span>
+              </div>
+            </div>
+            <div class="kanban-body" id="kolom-bezig">
+              <div style="color:var(--muted);font-size:.82rem;text-align:center;padding:12px 0">—</div>
+            </div>
+          </div>
+
+          <!-- Klaar -->
+          <div class="kanban-kolom">
+            <div class="kanban-kop">
+              <div class="kanban-kop-naam">
+                <span style="color:var(--green)">●</span>
+                Klaar
+                <span class="kanban-teller" id="teller-klaar">0</span>
+              </div>
+            </div>
+            <div class="kanban-body" id="kolom-klaar">
+              <div style="color:var(--muted);font-size:.82rem;text-align:center;padding:12px 0">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== KOLOM 2: KALENDER ===== -->
+        <div>
+          <div class="card-lbl" style="margin-bottom:12px">Examen-kalender</div>
+          <div class="card">
+            <div class="kal-nav">
+              <button class="kal-btn" onclick="wisselMaand(-1)">‹</button>
+              <div class="kal-maand" id="kal-maand-label"></div>
+              <button class="kal-btn" onclick="wisselMaand(1)">›</button>
+            </div>
+            <div class="kal-grid" id="kal-grid"></div>
+            <hr style="margin:0 0 16px">
+            <div class="card-lbl" style="margin-bottom:10px">Aankomende examens</div>
+            <div id="examen-lijst">
+              <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== KOLOM 3: STUDIEPLANNER ===== -->
+        <div>
+          <div class="card-lbl" style="margin-bottom:12px">Wekelijkse studieplanner</div>
+          <div class="card">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+              <span style="font-size:.875rem;color:var(--text-sec)">Beschikbare uren/week:</span>
+              <input type="number" id="uren-input" value="20" min="1" max="100"
+                class="finput" style="width:70px;padding:6px 10px"
+                oninput="herbereken()">
+            </div>
+            <div id="planner-inhoud">
+              <div style="color:var(--muted);font-size:.875rem">Examens laden…</div>
+            </div>
+            <div style="margin-top:14px;font-size:.75rem;color:var(--muted);line-height:1.6">
+              Berekend op basis van examendatum, vak, en beschikbare uren.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ MODAL: Nieuwe taak ============ -->
+  <div class="overlay" id="taak-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Nieuwe taak</h2>
+        <button class="modal-close" onclick="closeModal('taak-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Titel</label>
+          <input class="finput" id="taak-titel" placeholder="bijv. Oefeningen p.45 maken">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Vak</label>
+          <select class="fselect" id="taak-vak"></select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Deadline</label>
+          <input class="finput" type="date" id="taak-datum">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Type</label>
+          <select class="fselect" id="taak-type">
+            <option value="huiswerk">Huiswerk</option>
+            <option value="taak">Taak</option>
+            <option value="project">Project</option>
+            <option value="toets">Toets</option>
+            <option value="overig">Overig</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('taak-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanTaak()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Nieuw examen ============ -->
+  <div class="overlay" id="examen-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Examen toevoegen</h2>
+        <button class="modal-close" onclick="closeModal('examen-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Naam van het examen</label>
+          <input class="finput" id="exam-titel" placeholder="bijv. Hoofdstuk 4 — Integralen">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Vak</label>
+          <select class="fselect" id="exam-vak"></select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Datum</label>
+          <input class="finput" type="date" id="exam-datum">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Gewicht (% van eindscore)</label>
+          <input class="finput" type="number" id="exam-gewicht" value="100" min="1" max="100">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Geschatte voorbereidingstijd (uur)</label>
+          <input class="finput" type="number" id="exam-uren" value="10" min="1">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('examen-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanExamen()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Taak detail ============ -->
+  <div class="overlay" id="taak-detail-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="detail-titel">Taak</h2>
+        <button class="modal-close" onclick="closeModal('taak-detail-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:.875rem;color:var(--text-sec);margin-bottom:18px" id="detail-info"></div>
+        <div class="fgrp">
+          <label class="flbl">Status wijzigen</label>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="wijzigStatus('todo')">○ Te doen</button>
+            <button class="btn btn-ghost btn-sm" onclick="wijzigStatus('bezig')">◐ Bezig</button>
+            <button class="btn btn-ghost btn-sm" onclick="wijzigStatus('klaar')">● Klaar</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger" onclick="verwijderTaakHuidige()">
+          <i class="ph ph-trash"></i> Verwijderen
+        </button>
+        <button class="btn btn-ghost" onclick="closeModal('taak-detail-modal')">Sluiten</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    let alleTaken = [], alleExamens = [], alleVakken = [];
+    let huidigeMaand = new Date().getMonth();
+    let huidigJaar = new Date().getFullYear();
+    let huidigeTaakId = null;
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('planning');
+      await laadData();
+    })();
+
+    async function laadData() {
+      const [{ data: vakken }, { data: taken }, { data: examens }] = await Promise.all([
+        db.from('subjects').select('*').order('name'),
+        db.from('deadlines').select('*, subjects(name,color)').order('due_date'),
+        db.from('exams').select('*, subjects(name,color)').order('date'),
+      ]);
+      alleVakken = vakken || [];
+      alleTaken  = taken  || [];
+      alleExamens = examens || [];
+      renderKanban();
+      renderKalender();
+      renderExamenLijst();
+      herbereken();
+      vulVakSelect();
+    }
+
+    /* ================================================================
+       KANBAN
+       ================================================================ */
+    function renderKanban() {
+      const vandaagStr = new Date().toISOString().split('T')[0];
+
+      // Examens splitsen per status (ze staan altijd in exams-tabel)
+      const examensKomend = alleExamens.filter(e => e.date >= vandaagStr);
+
+      const statussen = {
+        todo:  alleTaken.filter(t => !t.completed && t.status !== 'bezig'),
+        bezig: alleTaken.filter(t => t.status === 'bezig' && !t.completed),
+        klaar: alleTaken.filter(t => t.completed),
+      };
+
+      // Tellers: examens + toetsen + taken samen tellen voor "te doen"
+      document.getElementById('teller-todo').textContent  = statussen.todo.length + examensKomend.length;
+      document.getElementById('teller-bezig').textContent = statussen.bezig.length;
+      document.getElementById('teller-klaar').textContent = statussen.klaar.length;
+
+      // Kolom: Te doen — examens bovenaan, dan toetsen, dan rest
+      renderKolomMet('todo', statussen.todo, examensKomend);
+      renderKolomMet('bezig', statussen.bezig, []);
+      renderKolomMet('klaar', statussen.klaar, []);
+    }
+
+    function renderKolomMet(status, taken, examens) {
+      const el = document.getElementById('kolom-' + status);
+      const toetsen  = taken.filter(t => t.type === 'toets');
+      const regulier = taken.filter(t => t.type !== 'toets');
+
+      if (!taken.length && !examens.length) {
+        el.innerHTML = `<div style="color:var(--muted);font-size:.78rem;text-align:center;padding:12px 0">Leeg</div>`;
+        return;
+      }
+
+      let html = '';
+
+      // ---- 1. Examens (zwaarst) ----
+      if (examens.length) {
+        html += `<div class="kanban-sectie-lbl">🎓 Examens</div>`;
+        html += examens.map(e => {
+          const d = dagenTot(e.date);
+          return `
+            <div class="examen-kanban-kaart">
+              <div class="examen-kanban-header">
+                <span class="examen-kanban-badge">Examen</span>
+                <span style="font-size:.75rem;color:rgba(255,255,255,.45);margin-left:4px">
+                  ${escHTML(e.subjects?.name || '')}
+                </span>
+                <span class="examen-kanban-countdown">${d}d</span>
+              </div>
+              <div class="examen-kanban-naam">${escHTML(e.title)}</div>
+              <div class="examen-kanban-meta">${datumNL(e.date)}</div>
+            </div>`;
+        }).join('');
+      }
+
+      // ---- 2. Toetsen (middel) ----
+      if (toetsen.length) {
+        html += `<div class="kanban-sectie-lbl">📝 Toetsen</div>`;
+        html += toetsen.map(t => {
+          const d = dagenTot(t.due_date);
+          const datumKlasse = d < 0 ? 'urgent' : d <= 2 ? 'soon' : '';
+          return `
+            <div class="taak-kaart toets-kaart" onclick="openTaakDetail('${t.id}')">
+              <div class="taak-titel">${escHTML(t.title)}</div>
+              <div class="taak-meta">
+                <span class="badge badge-gold">Toets</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="taak-vak-dot" style="background:${t.subjects?.color || 'var(--gold)'}"></span>
+                  <span class="taak-datum ${datumKlasse}">${relatieveDatum(t.due_date)}</span>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // ---- 3. Reguliere taken (licht) ----
+      if (regulier.length) {
+        if (examens.length || toetsen.length)
+          html += `<div class="kanban-sectie-lbl">✏️ Taken</div>`;
+        html += regulier.map(t => {
+          const d = dagenTot(t.due_date);
+          const datumKlasse = d < 0 ? 'urgent' : d <= 2 ? 'soon' : '';
+          const kaartKlasse = d < 0 ? 'verlopen' : d === 0 ? 'vandaag' : '';
+          return `
+            <div class="taak-kaart ${kaartKlasse}" onclick="openTaakDetail('${t.id}')">
+              <div class="taak-titel">${escHTML(t.title)}</div>
+              <div class="taak-meta">
+                <span class="badge badge-neutral">${t.type}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="taak-vak-dot" style="background:${t.subjects?.color || 'var(--gold)'}"></span>
+                  <span class="taak-datum ${datumKlasse}">${relatieveDatum(t.due_date)}</span>
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      el.innerHTML = html;
+    }
+
+    function openTaakDetail(id) {
+      const t = alleTaken.find(x => x.id === id);
+      if (!t) return;
+      huidigeTaakId = id;
+      document.getElementById('detail-titel').textContent = t.title;
+      document.getElementById('detail-info').innerHTML = `
+        <strong>Vak:</strong> ${t.subjects?.name || '—'}<br>
+        <strong>Deadline:</strong> ${datumNL(t.due_date)}<br>
+        <strong>Type:</strong> ${t.type}`;
+      openModal('taak-detail-modal');
+    }
+
+    async function wijzigStatus(nieuw) {
+      if (!huidigeTaakId) return;
+      const update = nieuw === 'klaar'
+        ? { completed: true, status: 'klaar' }
+        : { completed: false, status: nieuw };
+      await db.from('deadlines').update(update).eq('id', huidigeTaakId);
+      toast('Status bijgewerkt ✓', 'ok');
+      closeModal('taak-detail-modal');
+      await laadData();
+    }
+
+    async function verwijderTaakHuidige() {
+      if (!huidigeTaakId) return;
+      bevestig('Deze taak verwijderen?', async () => {
+        await db.from('deadlines').delete().eq('id', huidigeTaakId);
+        toast('Taak verwijderd', 'ok');
+        closeModal('taak-detail-modal');
+        await laadData();
+      });
+    }
+
+    /* ================================================================
+       KALENDER
+       ================================================================ */
+    function renderKalender() {
+      const label = document.getElementById('kal-maand-label');
+      label.textContent = new Date(huidigJaar, huidigeMaand, 1)
+        .toLocaleDateString('nl-BE', { month: 'long', year: 'numeric' });
+
+      const grid = document.getElementById('kal-grid');
+      const dagnamen = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+      let html = dagnamen.map(d => `<div class="kal-dag-naam">${d}</div>`).join('');
+
+      const eerstedag = new Date(huidigJaar, huidigeMaand, 1);
+      let startDag = eerstedag.getDay(); // 0=zo..6=za
+      startDag = startDag === 0 ? 6 : startDag - 1; // Omzetten naar ma=0
+
+      const aantalDagen = new Date(huidigJaar, huidigeMaand + 1, 0).getDate();
+      const vandaag = new Date();
+      const examenData = new Set(alleExamens.map(e => e.date));
+
+      for (let i = 0; i < startDag; i++) html += `<div class="kal-dag leeg"></div>`;
+      for (let d = 1; d <= aantalDagen; d++) {
+        const datumStr = `${huidigJaar}-${String(huidigeMaand + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isVandaag = d === vandaag.getDate() && huidigeMaand === vandaag.getMonth() && huidigJaar === vandaag.getFullYear();
+        const heeftExamen = examenData.has(datumStr);
+        html += `<div class="kal-dag ${isVandaag ? 'vandaag' : ''} ${heeftExamen ? 'heeft-examen' : ''}">${d}</div>`;
+      }
+      grid.innerHTML = html;
+    }
+
+    function wisselMaand(delta) {
+      huidigeMaand += delta;
+      if (huidigeMaand > 11) { huidigeMaand = 0; huidigJaar++; }
+      if (huidigeMaand < 0)  { huidigeMaand = 11; huidigJaar--; }
+      renderKalender();
+    }
+
+    function renderExamenLijst() {
+      const el = document.getElementById('examen-lijst');
+      const vandaagStr = new Date().toISOString().split('T')[0];
+      const komend = alleExamens.filter(e => e.date >= vandaagStr).slice(0, 6);
+
+      if (!komend.length) {
+        el.innerHTML = `<div class="leeg" style="padding:12px 0">
+          <div class="leeg-icon">📅</div>
+          <h3>Geen geplande examens</h3>
+          <button class="btn btn-gold btn-sm" onclick="openNieuwExamen()">Examen toevoegen</button></div>`;
+        return;
+      }
+      el.innerHTML = komend.map(e => {
+        const d = dagenTot(e.date);
+        return `
+          <div class="examen-item">
+            <div class="examen-item-dagen ${d <= 3 ? 'dringend' : ''}">${d}</div>
+            <div class="examen-item-info">
+              <div class="examen-item-naam">${escHTML(e.title)}</div>
+              <div class="examen-item-datum">${escHTML(e.subjects?.name || '')} — ${datumNL(e.date)}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ================================================================
+       STUDIEPLANNER
+       ================================================================ */
+    function herbereken() {
+      const beschikbaar = parseInt(document.getElementById('uren-input').value) || 20;
+      const el = document.getElementById('planner-inhoud');
+      const vandaagStr = new Date().toISOString().split('T')[0];
+      const komend = alleExamens.filter(e => e.date >= vandaagStr);
+
+      if (!komend.length) {
+        el.innerHTML = `<div style="color:var(--muted);font-size:.875rem">Voeg examens toe voor een studieplanning.</div>`;
+        return;
+      }
+
+      // Gewicht per vak berekenen: urgentie = 1/(dagen+1) × gewicht%
+      const vakMap = {};
+      komend.forEach(e => {
+        const d = Math.max(1, dagenTot(e.date));
+        const gewicht = (100 / d) * (e.weight_percentage || 100) / 100;
+        const vakId = e.subject_id;
+        if (!vakMap[vakId]) vakMap[vakId] = { naam: e.subjects?.name || '?', kleur: e.subjects?.color || 'var(--gold)', gewicht: 0 };
+        vakMap[vakId].gewicht += gewicht;
+      });
+
+      const totaalGewicht = Object.values(vakMap).reduce((s, v) => s + v.gewicht, 0);
+      const vakken = Object.entries(vakMap).map(([id, v]) => ({
+        ...v, uren: Math.round((v.gewicht / totaalGewicht) * beschikbaar * 10) / 10
+      })).sort((a, b) => b.uren - a.uren);
+
+      const maxUren = Math.max(...vakken.map(v => v.uren));
+
+      el.innerHTML = vakken.map(v => `
+        <div class="planner-rij">
+          <span class="planner-vak-dot" style="background:${v.kleur}"></span>
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span class="planner-vak-naam">${escHTML(v.naam)}</span>
+              <span>
+                <span class="planner-uren">${v.uren}</span>
+                <span class="planner-uren-lbl"> u/week</span>
+              </span>
+            </div>
+            <div class="planner-balk">
+              <div class="planner-balk-fill" style="width:${Math.round(v.uren/maxUren*100)}%;background:${v.kleur}"></div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    /* ================================================================
+       MODALS: toevoegen
+       ================================================================ */
+    function vulVakSelect() {
+      const opties = alleVakken.map(v => `<option value="${v.id}">${escHTML(v.name)}</option>`).join('');
+      document.getElementById('taak-vak').innerHTML  = opties || '<option value="">Geen vakken</option>';
+      document.getElementById('exam-vak').innerHTML  = opties || '<option value="">Geen vakken</option>';
+    }
+
+    function openNieuweTaak() {
+      document.getElementById('taak-titel').value = '';
+      document.getElementById('taak-datum').value = new Date().toISOString().split('T')[0];
+      document.getElementById('taak-type').value = 'huiswerk';
+      openModal('taak-modal');
+    }
+
+    async function opslaanTaak() {
+      const titel = document.getElementById('taak-titel').value.trim();
+      const vakId = document.getElementById('taak-vak').value;
+      const datum = document.getElementById('taak-datum').value;
+      const type  = document.getElementById('taak-type').value;
+      if (!titel || !datum) { toast('Vul titel en datum in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      const { error } = await db.from('deadlines').insert({
+        title: titel, subject_id: vakId, due_date: datum, type, user_id: user.id
+      });
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+      toast('Taak toegevoegd ✓', 'ok');
+      closeModal('taak-modal');
+      await laadData();
+    }
+
+    function openNieuwExamen() {
+      document.getElementById('exam-titel').value = '';
+      document.getElementById('exam-datum').value = '';
+      document.getElementById('exam-gewicht').value = '100';
+      document.getElementById('exam-uren').value = '10';
+      openModal('examen-modal');
+    }
+
+    async function opslaanExamen() {
+      const titel   = document.getElementById('exam-titel').value.trim();
+      const vakId   = document.getElementById('exam-vak').value;
+      const datum   = document.getElementById('exam-datum').value;
+      const gewicht = parseInt(document.getElementById('exam-gewicht').value) || 100;
+      const uren    = parseInt(document.getElementById('exam-uren').value) || 10;
+      if (!titel || !datum) { toast('Vul titel en datum in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      const { error } = await db.from('exams').insert({
+        title: titel, subject_id: vakId, date: datum,
+        weight_percentage: gewicht, prep_hours_needed: uren, user_id: user.id
+      });
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+      toast('Examen toegevoegd ✓', 'ok');
+      closeModal('examen-modal');
+      await laadData();
+    }
+  </script>
+</body>
+</html>

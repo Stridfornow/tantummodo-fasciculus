@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Notities</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Lay-out -------------------------------------------- */
+    .notities-layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 0;
+      height: calc(100vh - 96px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+
+    /* ---- Lijst (links) -------------------------------------- */
+    .notities-lijst-paneel {
+      background: var(--white);
+      border-right: 1px solid var(--card-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .lijst-header {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+
+    .lijst-zoek {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--card-border);
+      border-radius: var(--r-sm);
+      font-family: var(--body);
+      font-size: 0.82rem;
+      background: var(--bg);
+      outline: none;
+      transition: border-color 0.13s;
+      color: var(--navy);
+    }
+    .lijst-zoek:focus { border-color: var(--gold); }
+    .lijst-zoek::placeholder { color: var(--muted); }
+
+    .vak-filter-rij {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .vak-filter-chip {
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 3px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      cursor: pointer;
+      transition: all 0.12s;
+      white-space: nowrap;
+      color: var(--text-sec);
+      background: var(--white);
+    }
+    .vak-filter-chip:hover { background: var(--bg); }
+    .vak-filter-chip.actief { color: #fff; border-color: transparent; }
+
+    .notities-lijst {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .notitie-rij {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--card-border);
+      cursor: pointer;
+      transition: background 0.1s;
+      border-left: 3px solid transparent;
+    }
+    .notitie-rij:hover { background: var(--bg); }
+    .notitie-rij.actief { background: #FEF7E8; border-left-color: var(--gold); }
+
+    .notitie-rij-titel {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .notitie-rij-preview {
+      font-size: 0.78rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .notitie-rij-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+    }
+
+    .notitie-rij-datum { font-size: 0.72rem; color: var(--muted); }
+
+    .notitie-vak-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+      color: #fff;
+    }
+
+    /* ---- Editor/viewer (rechts) ----------------------------- */
+    .notities-editor-paneel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .editor-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 20px;
+      background: var(--white);
+      border-bottom: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+
+    .editor-modus-btn {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: none;
+      color: var(--text-sec);
+      transition: all 0.12s;
+    }
+    .editor-modus-btn.actief { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+    .notities-inhoud {
+      flex: 1;
+      padding: 28px 32px;
+      overflow-y: auto;
+    }
+
+    /* Weergave-modus */
+    .weergave-titel {
+      font-family: var(--display);
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+
+    .weergave-body {
+      font-size: 0.9375rem;
+      line-height: 1.75;
+      color: var(--navy);
+    }
+    .weergave-body h1, .weergave-body h2, .weergave-body h3 {
+      font-family: var(--display);
+      margin: 18px 0 8px;
+    }
+    .weergave-body p { margin-bottom: 12px; }
+    .weergave-body ul, .weergave-body ol { margin: 0 0 12px 22px; }
+    .weergave-body code { font-size: 0.82em; }
+
+    /* Bewerkingsmodus */
+    .bewerk-titel-input {
+      width: 100%;
+      font-family: var(--display);
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--navy);
+      border: none;
+      background: none;
+      outline: none;
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+    .bewerk-titel-input::placeholder { color: var(--card-border); }
+
+    .bewerk-inhoud-input {
+      width: 100%;
+      min-height: 300px;
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      line-height: 1.7;
+      border: none;
+      background: none;
+      outline: none;
+      resize: none;
+      color: var(--navy);
+    }
+    .bewerk-inhoud-input::placeholder { color: var(--muted); }
+
+    /* Lege staat */
+    .notities-leeg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      flex-direction: column;
+      gap: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 40px;
+    }
+    .notities-leeg-icon { font-size: 3rem; opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+        <div>
+          <div class="pg-eyebrow">Persoonlijk</div>
+          <div class="pg-title" style="font-size:2.25rem">Notities</div>
+        </div>
+        <button class="btn btn-gold" onclick="nieuweNotitie()" style="margin-top:8px">
+          <i class="ph ph-plus"></i> Nieuwe notitie
+        </button>
+      </div>
+
+      <div class="notities-layout">
+
+        <!-- Linker paneel: lijst -->
+        <div class="notities-lijst-paneel">
+          <div class="lijst-header">
+            <input class="lijst-zoek" id="zoek-input" placeholder="Zoeken…" oninput="filterNotities()">
+            <div class="vak-filter-rij" id="vak-chips"></div>
+          </div>
+          <div class="notities-lijst" id="notities-lijst">
+            <div style="padding:20px;color:var(--muted);font-size:.82rem">Laden…</div>
+          </div>
+        </div>
+
+        <!-- Rechter paneel: editor/viewer -->
+        <div class="notities-editor-paneel" id="editor-paneel">
+          <div class="notities-leeg">
+            <div class="notities-leeg-icon">📝</div>
+            <p style="font-size:.9rem;font-weight:500;color:var(--navy)">Kies een notitie of maak er een nieuwe</p>
+            <p style="font-size:.82rem">Gebruik Markdown voor opmaak, $formule$ voor KaTeX.</p>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    let alleNotities = [], alleVakken = [];
+    let actieveNotitieId = null;
+    let actieveVakFilter = 'alle';
+    let modus = 'weergave'; // 'weergave' | 'bewerken'
+    let ongeslagen = false;
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('notities');
+      const [{ data: vakken }] = await Promise.all([
+        db.from('subjects').select('*').order('name'),
+      ]);
+      alleVakken = vakken || [];
+      renderVakChips();
+      await laadNotities();
+    })();
+
+    /* ---- Vakken chips --------------------------------------- */
+    function renderVakChips() {
+      const el = document.getElementById('vak-chips');
+      el.innerHTML = `<span class="vak-filter-chip actief" style="background:var(--navy)"
+        onclick="kiesVakFilter('alle')">Alle</span>` +
+        alleVakken.map(v => `
+          <span class="vak-filter-chip ${actieveVakFilter === v.id ? 'actief' : ''}"
+            style="${actieveVakFilter === v.id ? 'background:' + v.color : ''}"
+            onclick="kiesVakFilter('${v.id}')">${escHTML(v.name)}</span>`
+        ).join('');
+    }
+
+    function kiesVakFilter(id) {
+      actieveVakFilter = id;
+      renderVakChips();
+      renderLijst();
+    }
+
+    /* ---- Notities laden ------------------------------------- */
+    async function laadNotities() {
+      const { data } = await db
+        .from('documents')
+        .select('*, subjects(name,color)')
+        .eq('type', 'notitie')
+        .order('updated_at', { ascending: false });
+      alleNotities = data || [];
+      renderLijst();
+    }
+
+    /* ---- Lijst renderen ------------------------------------ */
+    function filterNotities() { renderLijst(); }
+
+    function renderLijst() {
+      const el = document.getElementById('notities-lijst');
+      const zoek = document.getElementById('zoek-input').value.toLowerCase();
+
+      let lijst = alleNotities;
+      if (actieveVakFilter !== 'alle') lijst = lijst.filter(n => n.subject_id === actieveVakFilter);
+      if (zoek) lijst = lijst.filter(n =>
+        n.title.toLowerCase().includes(zoek) || (n.content || '').toLowerCase().includes(zoek));
+
+      if (!lijst.length) {
+        el.innerHTML = `<div style="padding:24px 18px;color:var(--muted);font-size:.82rem;text-align:center">
+          ${zoek || actieveVakFilter !== 'alle' ? 'Geen resultaten.' : 'Nog geen notities. Maak er een.'}
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = lijst.map(n => {
+        const preview = (n.content || '').replace(/[#*`$]/g, '').slice(0, 60);
+        const vak = n.subjects;
+        return `
+          <div class="notitie-rij ${actieveNotitieId === n.id ? 'actief' : ''}"
+               onclick="openNotitie('${n.id}')">
+            <div class="notitie-rij-titel">${escHTML(n.title)}</div>
+            <div class="notitie-rij-preview">${preview || 'Leeg'}</div>
+            <div class="notitie-rij-meta">
+              ${vak ? `<span class="notitie-vak-pill" style="background:${vak.color}">${escHTML(vak.name)}</span>` : ''}
+              <span class="notitie-rij-datum">${datumNL(n.updated_at)}</span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ---- Notitie openen ------------------------------------ */
+    function openNotitie(id) {
+      if (ongeslagen && actieveNotitieId && !confirm('Je hebt ongeslagen wijzigingen. Toch verder?')) return;
+      actieveNotitieId = id;
+      modus = 'weergave';
+      ongeslagen = false;
+      renderLijst();
+      renderEditor();
+    }
+
+    function renderEditor() {
+      const n = alleNotities.find(x => x.id === actieveNotitieId);
+      const el = document.getElementById('editor-paneel');
+      const vak = alleVakken.find(v => v.id === n?.subject_id);
+
+      el.innerHTML = `
+        <div class="editor-toolbar">
+          <button class="editor-modus-btn ${modus === 'weergave' ? 'actief' : ''}"
+            onclick="schakelModus('weergave')">Weergave</button>
+          <button class="editor-modus-btn ${modus === 'bewerken' ? 'actief' : ''}"
+            onclick="schakelModus('bewerken')">Bewerken</button>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+            ${vak ? `<span style="width:8px;height:8px;border-radius:50%;background:${vak.color};display:inline-block"></span>
+                     <span style="font-size:.82rem;color:var(--muted)">${escHTML(vak.name)}</span>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="opslaanNotitie()">
+              <i class="ph ph-floppy-disk"></i> Opslaan
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="verwijderNotitie('${n?.id}')">
+              <i class="ph ph-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="notities-inhoud" id="notities-inhoud-body"></div>`;
+
+      renderInhoud(n);
+    }
+
+    function renderInhoud(n) {
+      const el = document.getElementById('notities-inhoud-body');
+      if (!el) return;
+
+      if (modus === 'weergave') {
+        const html = marked.parse(n?.content || '*Geen inhoud. Klik op "Bewerken" om te beginnen.*');
+        el.innerHTML = `
+          <div class="weergave-titel">${escHTML(n?.title || '')}</div>
+          <div class="weergave-body" id="weergave-md">${html}</div>`;
+        renderMathInElement(document.getElementById('weergave-md'), {
+          delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }],
+          throwOnError: false
+        });
+      } else {
+        el.innerHTML = `
+          <input class="bewerk-titel-input" id="bewerk-titel"
+            value="${escHTML(n?.title || '')}" placeholder="Titel van je notitie"
+            oninput="markeerOngeslagen()">
+          <select class="fselect" id="bewerk-vak" style="max-width:220px;margin-bottom:16px;font-size:.82rem;padding:6px 10px"
+            onchange="markeerOngeslagen()">
+            <option value="">Geen vak</option>
+            ${alleVakken.map(v => `<option value="${v.id}" ${n?.subject_id === v.id ? 'selected' : ''}>${escHTML(v.name)}</option>`).join('')}
+          </select>
+          <textarea class="bewerk-inhoud-input" id="bewerk-inhoud"
+            placeholder="Schrijf hier in Markdown. Gebruik $formule$ voor KaTeX."
+            oninput="markeerOngeslagen()">${n?.content || ''}</textarea>`;
+      }
+    }
+
+    function schakelModus(m) {
+      if (modus === 'bewerken' && m === 'weergave' && ongeslagen) opslaanNotitie();
+      modus = m;
+      renderEditor();
+    }
+
+    function markeerOngeslagen() { ongeslagen = true; }
+
+    /* ---- Opslaan ------------------------------------------- */
+    async function opslaanNotitie() {
+      if (!actieveNotitieId) return;
+      const titel   = document.getElementById('bewerk-titel')?.value.trim() || '';
+      const inhoud  = document.getElementById('bewerk-inhoud')?.value || '';
+      const vakId   = document.getElementById('bewerk-vak')?.value || null;
+
+      if (!titel) { toast('Vul een titel in.', 'err'); return; }
+
+      const { error } = await db.from('documents').update({
+        title: titel, content: inhoud, subject_id: vakId || null,
+        updated_at: new Date().toISOString()
+      }).eq('id', actieveNotitieId);
+
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+
+      toast('Notitie opgeslagen ✓', 'ok');
+      ongeslagen = false;
+      await laadNotities();
+      if (modus === 'bewerken') { modus = 'weergave'; renderEditor(); }
+    }
+
+    /* ---- Nieuwe notitie ------------------------------------ */
+    async function nieuweNotitie() {
+      const user = await huidigGebruiker();
+      const { data, error } = await db.from('documents').insert({
+        title: 'Nieuwe notitie', type: 'notitie', content: '',
+        subject_id: actieveVakFilter !== 'alle' ? actieveVakFilter : null,
+        user_id: user.id
+      }).select().single();
+
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+
+      await laadNotities();
+      actieveNotitieId = data.id;
+      modus = 'bewerken';
+      renderLijst();
+      renderEditor();
+    }
+
+    /* ---- Verwijderen --------------------------------------- */
+    async function verwijderNotitie(id) {
+      bevestig('Deze notitie verwijderen?', async () => {
+        await db.from('documents').delete().eq('id', id);
+        actieveNotitieId = null;
+        toast('Notitie verwijderd', 'ok');
+        await laadNotities();
+        document.getElementById('editor-paneel').innerHTML = `
+          <div class="notities-leeg">
+            <div class="notities-leeg-icon">📝</div>
+            <p style="font-size:.9rem;font-weight:500;color:var(--navy)">Kies een notitie of maak er een nieuwe</p>
+          </div>`;
+      });
+    }
+  </script>
+</body>
+</html>

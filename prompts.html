@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Prompts</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Lay-out ---------------------------------------------- */
+    .prompts-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 0;
+      height: calc(100vh - 96px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+    }
+
+    /* ---- Boomstructuur (links) --------------------------------- */
+    .boom-paneel {
+      background: var(--white);
+      border-right: 1px solid var(--card-border);
+      overflow-y: auto;
+      padding: 14px 10px;
+    }
+
+    .boom-nieuwe-map {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      margin-bottom: 10px;
+      border: 1px dashed var(--card-border);
+      border-radius: var(--r-sm);
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .boom-nieuwe-map:hover { border-color: var(--gold); color: var(--gold-dark); background: var(--gold-bg); }
+
+    /* Map (categorie) */
+    .map-item {
+      margin-bottom: 3px;
+    }
+
+    .map-kop {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--navy);
+      transition: background 0.12s;
+    }
+    .map-kop:hover { background: var(--bg); }
+
+    .map-kop .chevron {
+      font-size: 0.7rem;
+      color: var(--muted);
+      transition: transform 0.15s;
+      width: 12px;
+    }
+    .map-item.open .chevron { transform: rotate(90deg); }
+
+    .map-teller {
+      margin-left: auto;
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+
+    /* Submappen (per vak) binnen een categorie */
+    .map-inhoud {
+      display: none;
+      padding-left: 14px;
+      margin-top: 2px;
+    }
+    .map-item.open .map-inhoud { display: block; }
+
+    .submap-kop {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-sec);
+      cursor: pointer;
+      border-radius: var(--r-sm);
+      transition: background 0.12s;
+    }
+    .submap-kop:hover { background: var(--bg); }
+
+    .submap-inhoud {
+      display: none;
+      padding-left: 18px;
+    }
+    .submap-item.open .submap-inhoud { display: block; }
+
+    /* Individuele prompt-rij */
+    .prompt-rij {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      color: var(--text-sec);
+      cursor: pointer;
+      border-radius: var(--r-sm);
+      transition: background 0.12s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .prompt-rij:hover { background: var(--bg); color: var(--navy); }
+    .prompt-rij.actief { background: #FEF7E8; color: var(--navy); font-weight: 600; }
+
+    /* ---- Weergavepaneel (rechts) ------------------------------- */
+    .prompt-view-paneel {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .prompt-view-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px;
+      background: var(--white);
+      border-bottom: 1px solid var(--card-border);
+      flex-shrink: 0;
+    }
+
+    .prompt-view-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+
+    .prompt-view-titel {
+      font-family: var(--display);
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .prompt-view-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .prompt-tekst-box {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 20px;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      line-height: 1.75;
+      color: var(--navy);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Leeg */
+    .prompts-leeg {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      flex-direction: column;
+      gap: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 40px;
+    }
+    .prompts-leeg-icon { font-size: 3rem; opacity: 0.4; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+        <div>
+          <div class="pg-eyebrow">Sjablonen</div>
+          <div class="pg-title" style="font-size:2.25rem">Prompts</div>
+          <div class="pg-sub">Herbruikbare prompts, georganiseerd per map en per vak.</div>
+        </div>
+        <button class="btn btn-gold" onclick="openNieuwePrompt()" style="margin-top:8px">
+          <i class="ph ph-plus"></i> Nieuwe prompt
+        </button>
+      </div>
+
+      <div class="prompts-layout">
+
+        <!-- Linker paneel: boomstructuur -->
+        <div class="boom-paneel">
+          <div class="boom-nieuwe-map" onclick="openNieuweMap()">
+            <i class="ph ph-folder-plus"></i> Nieuwe map
+          </div>
+          <div id="boom-inhoud">
+            <div style="padding:12px;color:var(--muted);font-size:.82rem">Laden…</div>
+          </div>
+        </div>
+
+        <!-- Rechter paneel: weergave -->
+        <div class="prompt-view-paneel" id="view-paneel">
+          <div class="prompts-leeg">
+            <div class="prompts-leeg-icon">✨</div>
+            <p style="font-size:.9rem;font-weight:500;color:var(--navy)">Kies een prompt of maak een nieuwe</p>
+            <p style="font-size:.82rem">Klik op een map links om open te vouwen.</p>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ MODAL: Nieuwe map ============ -->
+  <div class="overlay" id="map-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Nieuwe map</h2>
+        <button class="modal-close" onclick="closeModal('map-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Mapnaam</label>
+          <input class="finput" id="map-naam" placeholder="bijv. Oefeningen, Uitleg, Examenvoorbereiding…">
+          <div style="font-size:.78rem;color:var(--muted);margin-top:6px">
+            De map verschijnt zodra je er een eerste prompt in opslaat.
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('map-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="bevestigNieuweMap()">Doorgaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Nieuwe/bewerk prompt ============ -->
+  <div class="overlay" id="prompt-modal">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-head">
+        <h2 id="prompt-modal-titel">Nieuwe prompt</h2>
+        <button class="modal-close" onclick="closeModal('prompt-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="prompt-id">
+
+        <div class="fgrp">
+          <label class="flbl">Titel</label>
+          <input class="finput" id="prompt-titel" placeholder="bijv. Samenvatting maken van hoofdstuk">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fgrp">
+            <label class="flbl">Map</label>
+            <select class="fselect" id="prompt-map" onchange="checkNieuweMapOptie()"></select>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Vak (optioneel)</label>
+            <select class="fselect" id="prompt-vak">
+              <option value="">Geen vak / algemeen</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fgrp" id="nieuwe-map-veld" style="display:none">
+          <label class="flbl">Naam van de nieuwe map</label>
+          <input class="finput" id="prompt-nieuwe-map-naam" placeholder="bijv. Oefeningen">
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Prompt-tekst</label>
+          <textarea class="ftextarea" id="prompt-inhoud" style="min-height:200px"
+            placeholder="Schrijf hier de volledige prompt die je telkens opnieuw wil gebruiken…"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('prompt-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanPrompt()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    let allePrompts = [], alleVakken = [];
+    let actievePromptId = null;
+    let openMappen = new Set(['Samenvattingen']);
+    let openSubmappen = new Set();
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('prompts');
+      const { data: vakken } = await db.from('subjects').select('*').order('name');
+      alleVakken = vakken || [];
+      await laadPrompts();
+    })();
+
+    /* ================================================================
+       DATA LADEN
+       ================================================================ */
+    async function laadPrompts() {
+      const { data } = await db.from('prompts').select('*, subjects(name,color)').order('title');
+      allePrompts = data || [];
+      renderBoom();
+    }
+
+    /* ================================================================
+       BOOMSTRUCTUUR: Map → Vak (submap) → Prompts
+       ================================================================ */
+    function renderBoom() {
+      const el = document.getElementById('boom-inhoud');
+
+      // Groepeer per categorie (map)
+      const mappen = {};
+      allePrompts.forEach(p => {
+        if (!mappen[p.category]) mappen[p.category] = [];
+        mappen[p.category].push(p);
+      });
+
+      // Zorg dat "Samenvattingen" altijd bestaat, ook leeg
+      if (!mappen['Samenvattingen']) mappen['Samenvattingen'] = [];
+
+      const mapNamen = Object.keys(mappen).sort((a, b) => {
+        if (a === 'Samenvattingen') return -1;
+        if (b === 'Samenvattingen') return 1;
+        return a.localeCompare(b);
+      });
+
+      if (!allePrompts.length) {
+        el.innerHTML = `
+          <div class="map-item ${openMappen.has('Samenvattingen') ? 'open' : ''}">
+            <div class="map-kop" onclick="toggleMap('Samenvattingen')">
+              <span class="chevron">▸</span>
+              <i class="ph ph-folder"></i> Samenvattingen
+              <span class="map-teller">0</span>
+            </div>
+            <div class="map-inhoud">
+              <div style="padding:10px;color:var(--muted);font-size:.78rem">
+                Nog geen prompts. Klik op "Nieuwe prompt".
+              </div>
+            </div>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = mapNamen.map(mapNaam => {
+        const promptsInMap = mappen[mapNaam];
+
+        // Groepeer binnen de map per vak (submap), en "Algemeen" voor geen vak
+        const perVak = {};
+        promptsInMap.forEach(p => {
+          const key = p.subject_id || '_algemeen';
+          if (!perVak[key]) perVak[key] = { naam: p.subjects?.name || 'Algemeen', kleur: p.subjects?.color || 'var(--muted)', items: [] };
+          perVak[key].items.push(p);
+        });
+
+        const submapHTML = Object.entries(perVak).map(([vakKey, groep]) => {
+          const submapId = mapNaam + '::' + vakKey;
+          const isOpen = openSubmappen.has(submapId);
+          return `
+            <div class="submap-item ${isOpen ? 'open' : ''}">
+              <div class="submap-kop" onclick="toggleSubmap('${submapId}')">
+                <span class="chevron" style="font-size:.65rem;transform:${isOpen ? 'rotate(90deg)' : 'none'}">▸</span>
+                <span style="width:7px;height:7px;border-radius:50%;background:${groep.kleur};flex-shrink:0"></span>
+                ${escHTML(groep.naam)}
+                <span class="map-teller">${groep.items.length}</span>
+              </div>
+              <div class="submap-inhoud">
+                ${groep.items.map(p => `
+                  <div class="prompt-rij ${actievePromptId === p.id ? 'actief' : ''}"
+                       onclick="bekijkPrompt('${p.id}')">
+                    <i class="ph ph-file-text" style="font-size:.8rem;flex-shrink:0"></i>
+                    ${escHTML(p.title)}
+                  </div>`).join('')}
+              </div>
+            </div>`;
+        }).join('');
+
+        return `
+          <div class="map-item ${openMappen.has(mapNaam) ? 'open' : ''}">
+            <div class="map-kop" onclick="toggleMap('${escHTML(mapNaam)}')">
+              <span class="chevron">▸</span>
+              <i class="ph ph-folder"></i> ${escHTML(mapNaam)}
+              <span class="map-teller">${promptsInMap.length}</span>
+            </div>
+            <div class="map-inhoud">
+              ${submapHTML || '<div style="padding:8px 10px;color:var(--muted);font-size:.78rem">Leeg</div>'}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function toggleMap(naam) {
+      if (openMappen.has(naam)) openMappen.delete(naam); else openMappen.add(naam);
+      renderBoom();
+    }
+
+    function toggleSubmap(id) {
+      if (openSubmappen.has(id)) openSubmappen.delete(id); else openSubmappen.add(id);
+      renderBoom();
+    }
+
+    /* ================================================================
+       PROMPT BEKIJKEN
+       ================================================================ */
+    function bekijkPrompt(id) {
+      actievePromptId = id;
+      renderBoom();
+      const p = allePrompts.find(x => x.id === id);
+      if (!p) return;
+
+      const el = document.getElementById('view-paneel');
+      el.innerHTML = `
+        <div class="prompt-view-toolbar">
+          <span class="badge badge-gold">${escHTML(p.category)}</span>
+          ${p.subjects ? `<span style="display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)">
+            <span style="width:7px;height:7px;border-radius:50%;background:${p.subjects.color}"></span>
+            ${escHTML(p.subjects.name)}</span>` : ''}
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="bewerkPrompt('${p.id}')">
+              <i class="ph ph-pencil-simple"></i> Bewerken
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="verwijderPrompt('${p.id}')">
+              <i class="ph ph-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="prompt-view-body">
+          <div class="prompt-view-titel">${escHTML(p.title)}</div>
+          <div class="prompt-view-meta">Laatst gewijzigd: ${datumNL(p.updated_at)}</div>
+          <div class="prompt-tekst-box" id="prompt-tekst">${escHTML(p.content)}</div>
+          <button class="btn btn-gold" style="margin-top:16px" onclick="kopieerPrompt('${p.id}')">
+            <i class="ph ph-copy"></i> Kopiëren naar klembord
+          </button>
+        </div>`;
+    }
+
+    async function kopieerPrompt(id) {
+      const p = allePrompts.find(x => x.id === id);
+      if (!p) return;
+      try {
+        await navigator.clipboard.writeText(p.content);
+        toast('Prompt gekopieerd ✓', 'ok');
+      } catch (e) {
+        toast('Kopiëren mislukt — selecteer en kopieer handmatig.', 'err');
+      }
+    }
+
+    /* ================================================================
+       PROMPT TOEVOEGEN / BEWERKEN
+       ================================================================ */
+    function vulMapSelect(selectedMap) {
+      const mappen = [...new Set(allePrompts.map(p => p.category))];
+      if (!mappen.includes('Samenvattingen')) mappen.unshift('Samenvattingen');
+      mappen.sort((a, b) => a === 'Samenvattingen' ? -1 : b === 'Samenvattingen' ? 1 : a.localeCompare(b));
+
+      const el = document.getElementById('prompt-map');
+      el.innerHTML = mappen.map(m => `<option value="${escHTML(m)}">${escHTML(m)}</option>`).join('') +
+        `<option value="__nieuw__">+ Nieuwe map…</option>`;
+      if (selectedMap) el.value = selectedMap;
+    }
+
+    function vulVakSelect(selectedVak) {
+      const el = document.getElementById('prompt-vak');
+      el.innerHTML = `<option value="">Geen vak / algemeen</option>` +
+        alleVakken.map(v => `<option value="${v.id}">${escHTML(v.name)}</option>`).join('');
+      if (selectedVak) el.value = selectedVak;
+    }
+
+    function checkNieuweMapOptie() {
+      const veld = document.getElementById('nieuwe-map-veld');
+      veld.style.display = document.getElementById('prompt-map').value === '__nieuw__' ? 'block' : 'none';
+    }
+
+    function openNieuwePrompt() {
+      document.getElementById('prompt-modal-titel').textContent = 'Nieuwe prompt';
+      document.getElementById('prompt-id').value = '';
+      document.getElementById('prompt-titel').value = '';
+      document.getElementById('prompt-inhoud').value = '';
+      vulMapSelect('Samenvattingen');
+      vulVakSelect('');
+      checkNieuweMapOptie();
+      openModal('prompt-modal');
+    }
+
+    function bewerkPrompt(id) {
+      const p = allePrompts.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('prompt-modal-titel').textContent = 'Prompt bewerken';
+      document.getElementById('prompt-id').value = p.id;
+      document.getElementById('prompt-titel').value = p.title;
+      document.getElementById('prompt-inhoud').value = p.content;
+      vulMapSelect(p.category);
+      vulVakSelect(p.subject_id || '');
+      checkNieuweMapOptie();
+      openModal('prompt-modal');
+    }
+
+    async function opslaanPrompt() {
+      const id      = document.getElementById('prompt-id').value;
+      const titel   = document.getElementById('prompt-titel').value.trim();
+      const inhoud  = document.getElementById('prompt-inhoud').value.trim();
+      const vakId   = document.getElementById('prompt-vak').value || null;
+      let   mapNaam = document.getElementById('prompt-map').value;
+
+      if (mapNaam === '__nieuw__') {
+        mapNaam = document.getElementById('prompt-nieuwe-map-naam').value.trim();
+        if (!mapNaam) { toast('Vul een naam voor de nieuwe map in.', 'err'); return; }
+      }
+
+      if (!titel || !inhoud) { toast('Vul titel en prompt-tekst in.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const payload = {
+        title: titel, content: inhoud, category: mapNaam,
+        subject_id: vakId, user_id: user.id, updated_at: new Date().toISOString()
+      };
+
+      let error;
+      if (id) {
+        ({ error } = await db.from('prompts').update(payload).eq('id', id));
+      } else {
+        ({ error } = await db.from('prompts').insert(payload));
+      }
+
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+
+      toast(id ? 'Prompt bijgewerkt ✓' : 'Prompt opgeslagen ✓', 'ok');
+      openMappen.add(mapNaam);
+      closeModal('prompt-modal');
+      await laadPrompts();
+      if (id) bekijkPrompt(id);
+    }
+
+    async function verwijderPrompt(id) {
+      bevestig('Deze prompt verwijderen?', async () => {
+        await db.from('prompts').delete().eq('id', id);
+        actievePromptId = null;
+        toast('Prompt verwijderd', 'ok');
+        await laadPrompts();
+        document.getElementById('view-paneel').innerHTML = `
+          <div class="prompts-leeg">
+            <div class="prompts-leeg-icon">✨</div>
+            <p style="font-size:.9rem;font-weight:500;color:var(--navy)">Kies een prompt of maak een nieuwe</p>
+          </div>`;
+      });
+    }
+
+    /* ================================================================
+       NIEUWE MAP (los aanmaken zonder meteen een prompt)
+       ================================================================ */
+    function openNieuweMap() {
+      document.getElementById('map-naam').value = '';
+      openModal('map-modal');
+    }
+
+    function bevestigNieuweMap() {
+      const naam = document.getElementById('map-naam').value.trim();
+      if (!naam) { toast('Vul een mapnaam in.', 'err'); return; }
+      closeModal('map-modal');
+      openNieuwePrompt();
+      // Zet de gekozen mapnaam meteen klaar via het "nieuwe map"-veld
+      setTimeout(() => {
+        const sel = document.getElementById('prompt-map');
+        sel.value = '__nieuw__';
+        checkNieuweMapOptie();
+        document.getElementById('prompt-nieuwe-map-naam').value = naam;
+      }, 50);
+    }
+  </script>
+</body>
+</html>

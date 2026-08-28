@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Instellingen</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    .vak-rij {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 4px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .vak-rij:last-child { border-bottom: none; }
+
+    .vak-rij-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .vak-rij-icon { font-size: 1.2rem; }
+
+    .vak-rij-naam {
+      flex: 1;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--navy);
+    }
+
+    .kleur-opties {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .kleur-bol {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+    .kleur-bol:hover { transform: scale(1.1); }
+    .kleur-bol.gekozen { border-color: var(--navy); }
+
+    .icoon-opties {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .icoon-bol {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: var(--white);
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .icoon-bol:hover { background: var(--bg); }
+    .icoon-bol.gekozen { border-color: var(--gold); background: var(--gold-bg); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div class="page-header" style="margin-bottom:32px">
+        <div class="pg-eyebrow">Beheer</div>
+        <div class="pg-title" style="font-size:2.25rem">Instellingen</div>
+        <div class="pg-sub">Beheer je vakken en persoonlijke voorkeuren.</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <div class="card-title">Profiel</div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Weergavenaam</label>
+          <div style="display:flex;gap:10px">
+            <input class="finput" id="profiel-naam" placeholder="Jouw naam" style="max-width:280px">
+            <button class="btn btn-primary" onclick="opslaanNaam()">Opslaan</button>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:6px">Verschijnt in de begroeting op het dashboard.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <div class="card-title">Studieplanner</div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Beschikbare studieuren per week</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input class="finput" type="number" id="studie-uren" min="1" max="100" value="20" style="max-width:100px">
+            <button class="btn btn-primary" onclick="opslaanStudieUren()">Opslaan</button>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:6px">Wordt gebruikt door de automatische studieplanner op de planningspagina.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-head">
+          <div class="card-title">Browser-notificaties</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:.82rem;color:var(--muted)" id="notif-status-lbl">Uitgeschakeld</span>
+            <button class="btn btn-ghost btn-sm" id="notif-toggle-btn" onclick="toggleNotificaties()">Inschakelen</button>
+          </div>
+        </div>
+        <div id="notif-opties" style="display:none">
+          <div class="fgrp">
+            <label class="flbl">Herinner me bij examens</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;cursor:pointer">
+                <input type="checkbox" id="notif-7d" onchange="opslaanNotifVoorkeuren()"> 7 dagen voor
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;cursor:pointer">
+                <input type="checkbox" id="notif-3d" checked onchange="opslaanNotifVoorkeuren()"> 3 dagen voor
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:.875rem;cursor:pointer">
+                <input type="checkbox" id="notif-1d" checked onchange="opslaanNotifVoorkeuren()"> 1 dag voor
+              </label>
+            </div>
+          </div>
+          <div class="fgrp" style="margin-bottom:0">
+            <label class="flbl">Dagelijkse studieherinnering</label>
+            <div style="display:flex;gap:10px;align-items:center">
+              <input class="finput" type="time" id="notif-tijd" value="18:00" style="max-width:140px" onchange="opslaanNotifVoorkeuren()">
+              <span style="font-size:.82rem;color:var(--muted)">Elke dag</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Mijn vakken</div>
+          <button class="btn btn-gold btn-sm" onclick="openNieuwVak()">
+            <i class="ph ph-plus"></i> Vak toevoegen
+          </button>
+        </div>
+        <div id="vakken-lijst">
+          <div style="color:var(--muted);font-size:.875rem;padding:12px 0">Laden…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal: vak toevoegen/bewerken -->
+  <div class="overlay" id="vak-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="vak-modal-titel">Vak toevoegen</h2>
+        <button class="modal-close" onclick="closeModal('vak-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="vak-id">
+
+        <div class="fgrp">
+          <label class="flbl">Naam van het vak</label>
+          <input class="finput" id="vak-naam" placeholder="bijv. Wiskunde, Fysica, Frans...">
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Kleur</label>
+          <div class="kleur-opties" id="kleur-opties"></div>
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Icoon</label>
+          <div class="icoon-opties" id="icoon-opties"></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('vak-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanVak()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    const KLEUREN = ['#C4963A','#4A7B6F','#B85C4A','#2563EB','#7C3AED','#DB2777','#0891B2','#65A30D','#EA580C','#4B5563'];
+    const ICONEN  = ['📚','🔢','⚗️','🧬','🌍','📖','🎨','💻','⚖️','🏛️','🎭','🗣️'];
+    let gekozenKleur = KLEUREN[0];
+    let gekozenIcoon = ICONEN[0];
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('instellingen');
+      renderKeuzeOpties();
+      await laadVakken();
+      laadProfielInstellingen();
+    })();
+
+    function laadProfielInstellingen() {
+      // Naam
+      huidigGebruiker().then(u => {
+        if (u?.user_metadata?.name)
+          document.getElementById('profiel-naam').value = u.user_metadata.name;
+      });
+      // Studie-uren
+      const uren = localStorage.getItem('studie_uren_per_week') || '20';
+      document.getElementById('studie-uren').value = uren;
+      // Notificaties
+      const notifAan = localStorage.getItem('notifs_enabled') !== 'false';
+      const dagen    = JSON.parse(localStorage.getItem('notifs_dagen') || '[1,3,7]');
+      const tijd     = localStorage.getItem('notifs_herinner_tijd') || '18:00';
+      setNotifUI(notifAan);
+      document.getElementById('notif-1d').checked = dagen.includes(1);
+      document.getElementById('notif-3d').checked = dagen.includes(3);
+      document.getElementById('notif-7d').checked = dagen.includes(7);
+      document.getElementById('notif-tijd').value  = tijd;
+    }
+
+    async function opslaanNaam() {
+      const naam = document.getElementById('profiel-naam').value.trim();
+      if (!naam) { toast('Vul een naam in.', 'err'); return; }
+      const { error } = await db.auth.updateUser({ data: { name: naam } });
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+      toast('Naam opgeslagen ✓', 'ok');
+    }
+
+    function opslaanStudieUren() {
+      const uren = parseInt(document.getElementById('studie-uren').value);
+      if (!uren || uren < 1) { toast('Vul een geldig aantal uren in.', 'err'); return; }
+      localStorage.setItem('studie_uren_per_week', String(uren));
+      toast('Studie-uren opgeslagen ✓', 'ok');
+    }
+
+    async function toggleNotificaties() {
+      const isAan = localStorage.getItem('notifs_enabled') !== 'false';
+      if (isAan) {
+        localStorage.setItem('notifs_enabled', 'false');
+        setNotifUI(false);
+        toast('Notificaties uitgeschakeld', '');
+      } else {
+        const perm = await Notification.requestPermission();
+        if (perm !== 'granted') { toast('Toestemming geweigerd door browser.', 'err'); return; }
+        localStorage.setItem('notifs_enabled', 'true');
+        setNotifUI(true);
+        toast('Notificaties ingeschakeld ✓', 'ok');
+      }
+    }
+
+    function setNotifUI(aan) {
+      document.getElementById('notif-status-lbl').textContent  = aan ? 'Ingeschakeld' : 'Uitgeschakeld';
+      document.getElementById('notif-toggle-btn').textContent  = aan ? 'Uitschakelen' : 'Inschakelen';
+      document.getElementById('notif-toggle-btn').className    = aan ? 'btn btn-danger btn-sm' : 'btn btn-ghost btn-sm';
+      document.getElementById('notif-opties').style.display    = aan ? 'block' : 'none';
+    }
+
+    function opslaanNotifVoorkeuren() {
+      const dagen = [];
+      if (document.getElementById('notif-1d').checked) dagen.push(1);
+      if (document.getElementById('notif-3d').checked) dagen.push(3);
+      if (document.getElementById('notif-7d').checked) dagen.push(7);
+      localStorage.setItem('notifs_dagen', JSON.stringify(dagen));
+      localStorage.setItem('notifs_herinner_tijd', document.getElementById('notif-tijd').value);
+    }
+
+    function renderKeuzeOpties() {
+      document.getElementById('kleur-opties').innerHTML = KLEUREN.map(k => `
+        <div class="kleur-bol ${k === gekozenKleur ? 'gekozen' : ''}"
+             style="background:${k}"
+             onclick="kiesKleur('${k}')"></div>
+      `).join('');
+
+      document.getElementById('icoon-opties').innerHTML = ICONEN.map(i => `
+        <div class="icoon-bol ${i === gekozenIcoon ? 'gekozen' : ''}"
+             onclick="kiesIcoon('${i}')">${i}</div>
+      `).join('');
+    }
+
+    function kiesKleur(k) { gekozenKleur = k; renderKeuzeOpties(); }
+    function kiesIcoon(i) { gekozenIcoon = i; renderKeuzeOpties(); }
+
+    function openNieuwVak() {
+      document.getElementById('vak-modal-titel').textContent = 'Vak toevoegen';
+      document.getElementById('vak-id').value = '';
+      document.getElementById('vak-naam').value = '';
+      gekozenKleur = KLEUREN[0];
+      gekozenIcoon = ICONEN[0];
+      renderKeuzeOpties();
+      openModal('vak-modal');
+    }
+
+    function openBewerkVak(id, naam, kleur, icoon) {
+      document.getElementById('vak-modal-titel').textContent = 'Vak bewerken';
+      document.getElementById('vak-id').value = id;
+      document.getElementById('vak-naam').value = naam;
+      gekozenKleur = kleur;
+      gekozenIcoon = icoon;
+      renderKeuzeOpties();
+      openModal('vak-modal');
+    }
+
+    async function opslaanVak() {
+      const id    = document.getElementById('vak-id').value;
+      const naam  = document.getElementById('vak-naam').value.trim();
+
+      if (!naam) { toast('Vul een naam in voor het vak.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const payload = { name: naam, color: gekozenKleur, icon: gekozenIcoon, user_id: user.id };
+
+      let error;
+      if (id) {
+        ({ error } = await db.from('subjects').update(payload).eq('id', id));
+      } else {
+        ({ error } = await db.from('subjects').insert(payload));
+      }
+
+      if (error) { toast('Er ging iets mis: ' + error.message, 'err'); return; }
+
+      toast(id ? 'Vak bijgewerkt ✓' : 'Vak toegevoegd ✓', 'ok');
+      closeModal('vak-modal');
+      await laadVakken();
+      await renderZijbalk('instellingen');
+    }
+
+    async function verwijderVak(id, naam) {
+      bevestig(`Weet je zeker dat je "${naam}" wil verwijderen? Alle documenten, formules en cijfers van dit vak worden ook verwijderd.`, async () => {
+        const { error } = await db.from('subjects').delete().eq('id', id);
+        if (error) { toast('Verwijderen mislukt: ' + error.message, 'err'); return; }
+        toast('Vak verwijderd', 'ok');
+        await laadVakken();
+        await renderZijbalk('instellingen');
+      });
+    }
+
+    async function laadVakken() {
+      const el = document.getElementById('vakken-lijst');
+      const { data: vakken } = await db.from('subjects').select('*').order('name');
+
+      if (!vakken?.length) {
+        el.innerHTML = `
+          <div class="leeg">
+            <div class="leeg-icon">📚</div>
+            <h3>Nog geen vakken</h3>
+            <p>Voeg je eerste vak toe om te beginnen.</p>
+            <button class="btn btn-gold btn-sm" onclick="openNieuwVak()">Vak toevoegen</button>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = vakken.map(v => `
+        <div class="vak-rij">
+          <span class="vak-rij-dot" style="background:${escHTML(v.color)}"></span>
+          <span class="vak-rij-icon">${v.icon}</span>
+          <span class="vak-rij-naam">${escHTML(v.name)}</span>
+          <a href="./vak.html?id=${v.id}" class="btn btn-ghost btn-sm">Openen</a>
+          <button class="btn btn-ghost btn-sm"
+            onclick="openBewerkVak('${v.id}','${escHTML(v.name)}','${v.color}','${v.icon}')">
+            <i class="ph ph-pencil-simple"></i>
+          </button>
+          <button class="btn btn-danger btn-sm"
+            onclick="verwijderVak('${v.id}','${escHTML(v.name)}')">
+            <i class="ph ph-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

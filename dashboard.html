@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Overzicht</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Dashboard-specifieke stijlen ----------------------- */
+
+    /* Grote begroeting bovenaan */
+    .begroeting {
+      margin-bottom: 48px;
+    }
+
+    .begroeting-naam {
+      font-family: var(--display);
+      font-size: clamp(2.8rem, 4.5vw, 4rem);
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1.1;
+    }
+
+    .begroeting-datum {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .begroeting-datum::before {
+      content: '';
+      display: inline-block;
+      width: 24px;
+      height: 2px;
+      background: var(--gold);
+      border-radius: 1px;
+    }
+
+    /* Examen countdown strip */
+    .examen-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .examen-card {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow-card);
+      padding: 22px 24px 20px;
+      border-top: 4px solid var(--gold);
+      transition: box-shadow 0.15s;
+    }
+
+    .examen-card:hover { box-shadow: var(--shadow-md); }
+
+    .examen-card.dringend { border-top-color: var(--danger); }
+    .examen-card.binnenkort { border-top-color: #E0A030; }
+
+    .examen-getal {
+      font-family: var(--display);
+      font-size: 3.75rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+
+    .examen-getal.dringend-num { color: var(--danger); }
+    .examen-getal.binnenkort-num { color: #B07820; }
+
+    .examen-unit {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .examen-naam {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--navy);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .examen-vak {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* Sectietitel */
+    .sectie-titel {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+
+    /* Dashboard twee kolommen */
+    .dash-row {
+      display: grid;
+      grid-template-columns: 5fr 4fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    /* Vandaag-lijst */
+    .vandaag-item {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .vandaag-item:last-child { border-bottom: none; }
+
+    .vinkbox {
+      width: 19px; height: 19px;
+      border: 2px solid var(--card-border);
+      border-radius: 5px;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      flex-shrink: 0;
+      position: relative;
+      transition: all 0.13s;
+    }
+
+    .vinkbox:checked {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .vinkbox:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px; top: 1px;
+      width: 8px; height: 5px;
+      border-bottom: 2px solid #fff;
+      border-left: 2px solid #fff;
+      transform: rotate(-45deg);
+    }
+
+    .vandaag-tekst {
+      flex: 1;
+      font-size: 0.875rem;
+      color: var(--navy);
+      line-height: 1.4;
+    }
+
+    .vandaag-tekst.gedaan {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .vandaag-vak-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Streak sectie */
+    .streak-getal {
+      font-family: var(--display);
+      font-size: 5rem;
+      font-weight: 600;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .streak-label {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-top: 4px;
+      margin-bottom: 22px;
+    }
+
+    /* Heatmap (13 weken × 7 dagen) */
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 3px;
+    }
+
+    .hm-cel {
+      aspect-ratio: 1;
+      border-radius: 2px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+    }
+
+    .hm-cel[data-n="1"] { background: #F0DCB0; border-color: #E8C87A; }
+    .hm-cel[data-n="2"] { background: var(--gold); border-color: var(--gold); }
+    .hm-cel[data-n="3"] { background: #8A6820; border-color: #8A6820; }
+    .hm-cel[data-n="4"] { background: var(--navy); border-color: var(--navy); }
+
+    /* Statistieken rij */
+    .stats-rij {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-kaart {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow-card);
+      padding: 20px 24px;
+    }
+
+    .stat-num {
+      font-family: var(--display);
+      font-size: 2.5rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-num.gold  { color: var(--gold); }
+    .stat-num.green { color: var(--green); }
+
+    .stat-lbl {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Vakken grid */
+    .vakken-raster {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .vak-kaart {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-left: 4px solid var(--gold);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: box-shadow 0.13s, transform 0.13s;
+      text-decoration: none;
+    }
+
+    .vak-kaart:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .vak-icon { font-size: 1.2rem; }
+
+    .vak-naam {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--navy);
+    }
+
+    /* Snelle acties */
+    .acties {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <!-- Zijbalk -->
+    <div id="zijbalk"></div>
+
+    <!-- Hoofdinhoud -->
+    <main class="main">
+
+      <!-- Begroeting -->
+      <div class="begroeting">
+        <div class="begroeting-naam" id="begroeting-tekst">Laden…</div>
+        <div class="begroeting-datum" id="begroeting-datum"></div>
+      </div>
+
+      <!-- Snelle acties -->
+      <div class="acties">
+        <a href="./planning.html" class="btn btn-primary">
+          <i class="ph ph-plus"></i> Deadline toevoegen
+        </a>
+        <a href="./cijfers.html" class="btn btn-ghost">
+          <i class="ph ph-chart-bar"></i> Punt ingeven
+        </a>
+        <a href="./notities.html" class="btn btn-ghost">
+          <i class="ph ph-note-pencil"></i> Notitie schrijven
+        </a>
+      </div>
+
+      <!-- Examen countdowns -->
+      <div class="sectie-titel">Volgende examens</div>
+      <div class="examen-strip" id="examen-strip">
+        <!-- Tijdelijke placeholders -->
+        <div class="examen-card"><div style="color:var(--muted);font-size:.875rem;padding:8px 0">Laden…</div></div>
+        <div class="examen-card"><div style="color:var(--muted);font-size:.875rem;padding:8px 0">Laden…</div></div>
+        <div class="examen-card"><div style="color:var(--muted);font-size:.875rem;padding:8px 0">Laden…</div></div>
+      </div>
+
+      <!-- Statistieken rij -->
+      <div class="stats-rij">
+        <div class="stat-kaart">
+          <div class="card-lbl">Studiestreek</div>
+          <div class="stat-num gold" id="sn-streak">—</div>
+          <div class="stat-lbl">opeenvolgende dagen</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="card-lbl">Gem. over alle vakken</div>
+          <div class="stat-num" id="sn-gem">—</div>
+          <div class="stat-lbl">gewogen gemiddelde</div>
+        </div>
+        <div class="stat-kaart">
+          <div class="card-lbl">Vandaag te doen</div>
+          <div class="stat-num" id="sn-taken">—</div>
+          <div class="stat-lbl">openstaande taken</div>
+        </div>
+      </div>
+
+      <!-- Twee kolommen -->
+      <div class="dash-row">
+
+        <!-- Vandaag's taken -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Vandaag te doen</div>
+            <a href="./planning.html" class="btn btn-ghost btn-sm">Alle taken →</a>
+          </div>
+          <div id="vandaag-lijst">
+            <div style="color:var(--muted);font-size:.875rem;padding:12px 0">Laden…</div>
+          </div>
+        </div>
+
+        <!-- Streak & heatmap -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">Studieactiviteit</div>
+            <a href="./statistieken.html" class="btn btn-ghost btn-sm">Volledig →</a>
+          </div>
+          <div class="streak-getal" id="streak-getal">0</div>
+          <div class="streak-label" id="streak-label">dagen achtereen</div>
+          <div class="heatmap" id="heatmap"></div>
+        </div>
+
+      </div>
+
+      <!-- Vakken -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">Mijn vakken</div>
+          <a href="./instellingen.html" class="btn btn-ghost btn-sm">
+            <i class="ph ph-plus"></i> Vak toevoegen
+          </a>
+        </div>
+        <div class="vakken-raster" id="vakken-raster">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+
+      const user = sessie.user;
+      const naam = user.user_metadata?.name || user.email.split('@')[0];
+
+      // Begroeting
+      document.getElementById('begroeting-tekst').textContent = begroeting(naam);
+      document.getElementById('begroeting-datum').textContent =
+        new Date().toLocaleDateString('nl-BE', {
+          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+
+      // Zijbalk
+      await renderZijbalk('dashboard');
+
+      // Laad alles parallel
+      await Promise.all([
+        laadExamens(),
+        laadVandaag(),
+        laadGemiddelde(),
+        laadStreak(),
+        laadVakken(),
+      ]);
+    })();
+
+    /* ---- Examens -------------------------------------------- */
+    async function laadExamens() {
+      const el = document.getElementById('examen-strip');
+      const vandaag = new Date().toISOString().split('T')[0];
+
+      const { data: examens } = await db
+        .from('exams')
+        .select('id, title, date, subjects(name, color)')
+        .gte('date', vandaag)
+        .order('date')
+        .limit(3);
+
+      if (!examens?.length) {
+        el.innerHTML = `
+          <div class="examen-card" style="grid-column:1/-1">
+            <div class="leeg">
+              <div class="leeg-icon">📅</div>
+              <h3>Geen geplande examens</h3>
+              <p>Voeg examens toe via de planningspagina.</p>
+              <a href="./planning.html" class="btn btn-gold btn-sm">Planning openen</a>
+            </div>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = examens.map(e => {
+        const d = dagenTot(e.date);
+        const klasse = d <= 3 ? 'dringend' : d <= 7 ? 'binnenkort' : '';
+        const numKlasse = d <= 3 ? 'dringend-num' : d <= 7 ? 'binnenkort-num' : '';
+        const kleur = e.subjects?.color || 'var(--gold)';
+        return `
+          <div class="examen-card ${klasse}" style="border-top-color:${kleur}">
+            <div class="examen-getal ${numKlasse}">${d}</div>
+            <div class="examen-unit">dag${d !== 1 ? 'en' : ''} resterend</div>
+            <div class="examen-naam">${escHTML(e.title)}</div>
+            <div class="examen-vak">${escHTML(e.subjects?.name || '')}</div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ---- Vandaag -------------------------------------------- */
+    async function laadVandaag() {
+      const el = document.getElementById('vandaag-lijst');
+      const vandaag = new Date().toISOString().split('T')[0];
+
+      const { data: taken } = await db
+        .from('deadlines')
+        .select('id, title, completed, subjects(name, color)')
+        .eq('due_date', vandaag)
+        .order('completed');
+
+      const openstaand = (taken || []).filter(t => !t.completed).length;
+      document.getElementById('sn-taken').textContent = openstaand;
+
+      if (!taken?.length) {
+        el.innerHTML = `
+          <div class="leeg" style="padding:24px 0">
+            <div class="leeg-icon">✓</div>
+            <h3>Niets te doen vandaag</h3>
+            <p>Geniet ervan — of voeg een taak toe via Planning.</p>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = taken.map(t => `
+        <div class="vandaag-item">
+          <input type="checkbox" class="vinkbox"
+            ${t.completed ? 'checked' : ''}
+            onchange="vinkDeadline('${t.id}', this.checked)">
+          <span class="vandaag-dot"
+            style="width:8px;height:8px;border-radius:50%;
+                   background:${t.subjects?.color || 'var(--gold)'};flex-shrink:0"></span>
+          <div class="vandaag-tekst ${t.completed ? 'gedaan' : ''}">${escHTML(t.title)}</div>
+          <div style="font-size:.78rem;color:var(--muted);flex-shrink:0">
+            ${escHTML(t.subjects?.name || '')}
+          </div>
+        </div>`).join('');
+    }
+
+    async function vinkDeadline(id, gedaan) {
+      await db.from('deadlines').update({ completed: gedaan }).eq('id', id);
+      toast(gedaan ? 'Taak voltooid ✓' : 'Taak heropend', gedaan ? 'ok' : '');
+      await laadVandaag();
+    }
+
+    /* ---- Gemiddelde ----------------------------------------- */
+    async function laadGemiddelde() {
+      const { data: punten } = await db.from('grades').select('score, max_score, weight');
+      if (!punten?.length) { document.getElementById('sn-gem').textContent = '—'; return; }
+      const gewicht = punten.reduce((s, p) => s + (p.weight || 1), 0);
+      const som = punten.reduce((s, p) => s + (p.score / p.max_score * 100 * (p.weight || 1)), 0);
+      document.getElementById('sn-gem').textContent = (som / gewicht).toFixed(1) + '%';
+    }
+
+    /* ---- Streak & Heatmap ----------------------------------- */
+    async function laadStreak() {
+      const { data: dagen } = await db
+        .from('study_days')
+        .select('date, total_minutes')
+        .order('date', { ascending: false })
+        .limit(91);
+
+      const dagenSet = new Set((dagen || []).map(d => d.date));
+      let streak = 0;
+      const nu = new Date();
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(nu);
+        d.setDate(d.getDate() - i);
+        const sleutel = d.toISOString().split('T')[0];
+        if (dagenSet.has(sleutel)) streak++;
+        else if (i > 0) break;
+      }
+
+      document.getElementById('streak-getal').textContent = streak;
+      document.getElementById('sn-streak').textContent = streak;
+      document.getElementById('streak-label').textContent =
+        streak === 1 ? 'dag achtereen' : 'dagen achtereen';
+
+      // Heatmap
+      const minutenMap = {};
+      (dagen || []).forEach(d => { minutenMap[d.date] = d.total_minutes; });
+
+      const hm = document.getElementById('heatmap');
+      hm.innerHTML = '';
+      for (let i = 90; i >= 0; i--) {
+        const d = new Date(nu);
+        d.setDate(d.getDate() - i);
+        const sleutel = d.toISOString().split('T')[0];
+        const min = minutenMap[sleutel] || 0;
+        const n = min === 0 ? 0 : min < 30 ? 1 : min < 90 ? 2 : min < 180 ? 3 : 4;
+        const cel = document.createElement('div');
+        cel.className = 'hm-cel';
+        cel.dataset.n = n;
+        cel.title = `${sleutel}: ${min} min`;
+        hm.appendChild(cel);
+      }
+    }
+
+    /* ---- Vakken --------------------------------------------- */
+    async function laadVakken() {
+      const el = document.getElementById('vakken-raster');
+      const { data: vakken } = await db.from('subjects').select('id, name, color, icon').order('name');
+
+      if (!vakken?.length) {
+        el.innerHTML = `
+          <div class="leeg" style="padding:16px 0;grid-column:1/-1">
+            <div class="leeg-icon">📚</div>
+            <h3>Geen vakken gevonden</h3>
+            <p>Voeg je eerste vak toe in de instellingen.</p>
+            <a href="./instellingen.html" class="btn btn-gold btn-sm">Vak toevoegen</a>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = vakken.map(v => `
+        <a href="./vak.html?id=${v.id}" class="vak-kaart"
+           style="border-left-color:${escHTML(v.color || '#C4963A')}">
+          <span class="vak-icon">${v.icon || '📚'}</span>
+          <span class="vak-naam">${escHTML(v.name)}</span>
+        </a>`).join('');
+    }
+  </script>
+</body>
+</html>

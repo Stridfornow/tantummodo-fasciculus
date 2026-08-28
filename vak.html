@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vak — School Dashboard</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+
+  <!-- KaTeX voor formules -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Vakheader ------------------------------------------ */
+    .vak-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 8px;
+      padding-left: 20px;
+      border-left: 4px solid var(--gold);
+    }
+    .vak-header-icon { font-size: 2.5rem; }
+    .vak-header-naam {
+      font-family: var(--display);
+      font-size: 2.5rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    /* ---- Tabs ------------------------------------------------ */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--card-border);
+      margin: 32px 0 28px;
+    }
+    .tab {
+      padding: 11px 18px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.13s, border-color 0.13s;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .tab:hover { color: var(--navy); }
+    .tab.actief { color: var(--navy); border-bottom-color: var(--gold); font-weight: 600; }
+
+    .tab-paneel { display: none; }
+    .tab-paneel.actief { display: block; }
+
+    /* ---- Documenten ------------------------------------------ */
+    .doc-filters {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+    }
+    .doc-filter-btn {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border: 1px solid var(--card-border);
+      background: var(--white);
+      color: var(--text-sec);
+      cursor: pointer;
+      transition: all 0.13s;
+    }
+    .doc-filter-btn:hover { background: var(--bg); }
+    .doc-filter-btn.actief { background: var(--navy); color: #fff; border-color: var(--navy); }
+
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+
+    .doc-kaart {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: box-shadow 0.13s, transform 0.13s;
+      box-shadow: var(--shadow-card);
+    }
+    .doc-kaart:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+
+    .doc-kaart-titel {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .doc-kaart-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .doc-kaart-datum { font-size: 0.75rem; color: var(--muted); }
+
+    /* ---- Formules ---------------------------------------------- */
+    .formule-zoek { margin-bottom: 22px; }
+
+    .formule-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .formule-kaart {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .formule-naam {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+
+    .formule-weergave {
+      font-size: 1.1rem;
+      padding: 10px 0;
+      overflow-x: auto;
+    }
+
+    .formule-categorie {
+      display: inline-block;
+      font-size: 0.7rem;
+      color: var(--gold);
+      background: var(--gold-bg);
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-top: 6px;
+    }
+
+    .formule-omschrijving {
+      font-size: 0.8125rem;
+      color: var(--text-sec);
+      margin-top: 8px;
+    }
+
+    /* ---- Woorden ------------------------------------------------ */
+    .woord-tabel {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .woord-tabel th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      padding: 10px 12px;
+      border-bottom: 2px solid var(--card-border);
+    }
+    .woord-tabel td {
+      padding: 12px;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: top;
+    }
+    .woord-tabel tr:last-child td { border-bottom: none; }
+
+    .woord-term { font-weight: 600; color: var(--navy); }
+    .woord-voorbeeld { color: var(--muted); font-style: italic; font-size: 0.8125rem; }
+
+    /* ---- Editor split view --------------------------------------- */
+    .editor-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .editor-pane-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .editor-preview {
+      border: 1px solid var(--card-border);
+      border-radius: var(--r-sm);
+      padding: 14px;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 0.875rem;
+      line-height: 1.7;
+      background: var(--bg);
+    }
+    .editor-preview h1, .editor-preview h2, .editor-preview h3 {
+      font-family: var(--display); margin: 12px 0 6px;
+    }
+    .editor-preview p { margin-bottom: 10px; color: var(--navy); }
+    .editor-preview code { font-size: 0.8em; }
+
+    /* ---- Documentviewer modal -------------------------------- */
+    .doc-viewer-body {
+      padding: 8px 4px;
+      font-size: 0.9375rem;
+      line-height: 1.75;
+      color: var(--navy);
+    }
+    .doc-viewer-body h1, .doc-viewer-body h2, .doc-viewer-body h3 {
+      font-family: var(--display); margin: 18px 0 8px;
+    }
+    .doc-viewer-body p { margin-bottom: 12px; }
+    .doc-viewer-body ul, .doc-viewer-body ol { margin: 0 0 12px 20px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+
+      <!-- Vakheader -->
+      <div class="vak-header" id="vak-header">
+        <span class="vak-header-icon">📚</span>
+        <span class="vak-header-naam">Laden…</span>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab actief" data-tab="documenten" onclick="wisselTab('documenten')">
+          <i class="ph ph-file-text"></i> Documenten
+        </div>
+        <div class="tab" data-tab="formules" onclick="wisselTab('formules')">
+          <i class="ph ph-function"></i> Formules
+        </div>
+        <div class="tab" data-tab="woorden" onclick="wisselTab('woorden')">
+          <i class="ph ph-translate"></i> Woorden
+        </div>
+        <div class="tab" data-tab="oefeningen" onclick="wisselTab('oefeningen')">
+          <i class="ph ph-pencil-line"></i> Oefeningen
+        </div>
+        <div class="tab" data-tab="bronnen" onclick="wisselTab('bronnen')">
+          <i class="ph ph-bookmark-simple"></i> Bronnen
+        </div>
+      </div>
+
+      <!-- TAB: Documenten -->
+      <div class="tab-paneel actief" id="paneel-documenten">
+        <div class="doc-filters" id="doc-filters">
+          <button class="doc-filter-btn actief" data-type="alle" onclick="filterDocs('alle')">Alle</button>
+          <button class="doc-filter-btn" data-type="samenvatting" onclick="filterDocs('samenvatting')">Samenvatting</button>
+          <button class="doc-filter-btn" data-type="oefening" onclick="filterDocs('oefening')">Oefening</button>
+          <button class="doc-filter-btn" data-type="formuleblad" onclick="filterDocs('formuleblad')">Formuleblad</button>
+          <button class="doc-filter-btn" data-type="notitie" onclick="filterDocs('notitie')">Notitie</button>
+          <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openNieuwDoc()">
+            <i class="ph ph-plus"></i> Nieuw document
+          </button>
+        </div>
+        <div class="doc-grid" id="doc-grid">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+      <!-- TAB: Formules -->
+      <div class="tab-paneel" id="paneel-formules">
+        <div class="doc-filters">
+          <input class="finput formule-zoek" id="formule-zoek" placeholder="Zoek een formule op naam of categorie…" style="max-width:340px" oninput="renderFormules()">
+          <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openNieuweFormule()">
+            <i class="ph ph-plus"></i> Nieuwe formule
+          </button>
+        </div>
+        <div class="formule-grid" id="formule-grid">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+      <!-- TAB: Woorden -->
+      <div class="tab-paneel" id="paneel-woorden">
+        <div class="doc-filters">
+          <button class="doc-filter-btn actief" data-mastered="alle" onclick="filterWoorden('alle')">Alle</button>
+          <button class="doc-filter-btn" data-mastered="niet" onclick="filterWoorden('niet')">Nog niet beheerst</button>
+          <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openNieuwWoord()">
+            <i class="ph ph-plus"></i> Woord toevoegen
+          </button>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="woord-tabel" id="woord-tabel">
+            <thead>
+              <tr><th>Woord</th><th>Definitie</th><th>Voorbeeld</th><th>Beheerst</th><th></th></tr>
+            </thead>
+            <tbody id="woord-tbody">
+              <tr><td colspan="5" style="color:var(--muted)">Laden…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: Oefeningen -->
+      <div class="tab-paneel" id="paneel-oefeningen">
+        <div class="doc-filters">
+          <button class="doc-filter-btn actief" data-diff="alle" onclick="filterOefeningen('alle')">Alle</button>
+          <button class="doc-filter-btn" data-diff="1" onclick="filterOefeningen('1')">★</button>
+          <button class="doc-filter-btn" data-diff="2" onclick="filterOefeningen('2')">★★</button>
+          <button class="doc-filter-btn" data-diff="3" onclick="filterOefeningen('3')">★★★</button>
+          <button class="doc-filter-btn" data-diff="4" onclick="filterOefeningen('4')">★★★★</button>
+          <button class="doc-filter-btn" data-diff="5" onclick="filterOefeningen('5')">★★★★★</button>
+          <button class="btn btn-ghost btn-sm" onclick="openSimulatie()" style="margin-left:8px">
+            <i class="ph ph-timer"></i> Start simulatie
+          </button>
+          <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openNieuweOefening()">
+            <i class="ph ph-plus"></i> Nieuwe oefening
+          </button>
+        </div>
+        <div id="oefening-lijst">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+      <!-- TAB: Bronnen -->
+      <div class="tab-paneel" id="paneel-bronnen">
+        <div class="doc-filters">
+          <button class="doc-filter-btn actief" data-btype="alle" onclick="filterBronnen('alle')">Alle</button>
+          <button class="doc-filter-btn" data-btype="boek" onclick="filterBronnen('boek')">📚 Boek</button>
+          <button class="doc-filter-btn" data-btype="video" onclick="filterBronnen('video')">🎥 Video</button>
+          <button class="doc-filter-btn" data-btype="website" onclick="filterBronnen('website')">🌐 Website</button>
+          <button class="doc-filter-btn" data-btype="paper" onclick="filterBronnen('paper')">📄 Paper</button>
+          <button class="btn btn-gold btn-sm" style="margin-left:auto" onclick="openNieuweBron()">
+            <i class="ph ph-plus"></i> Bron toevoegen
+          </button>
+        </div>
+        <div class="doc-grid" id="bronnen-grid">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ============ MODAL: Nieuw/bewerk document ============ -->
+  <div class="overlay" id="doc-modal">
+    <div class="modal" style="max-width:760px">
+      <div class="modal-head">
+        <h2 id="doc-modal-titel">Nieuw document</h2>
+        <button class="modal-close" onclick="closeModal('doc-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="doc-id">
+
+        <div class="fgrp">
+          <label class="flbl">Titel</label>
+          <input class="finput" id="doc-titel" placeholder="bijv. Hoofdstuk 3 — Afgeleiden">
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Type</label>
+          <select class="fselect" id="doc-type">
+            <option value="samenvatting">Samenvatting</option>
+            <option value="oefening">Oefening</option>
+            <option value="formuleblad">Formuleblad</option>
+            <option value="notitie" selected>Notitie</option>
+            <option value="overig">Overig</option>
+          </select>
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Inhoud (Markdown — gebruik $formule$ voor KaTeX)</label>
+          <div class="editor-split">
+            <div>
+              <div class="editor-pane-label">Schrijven</div>
+              <textarea class="ftextarea" id="doc-inhoud" style="min-height:260px"
+                placeholder="# Titel&#10;&#10;Schrijf hier je samenvatting in Markdown.&#10;&#10;Formule: $E = mc^2$"
+                oninput="ververEditorPreview()"></textarea>
+            </div>
+            <div>
+              <div class="editor-pane-label">Voorbeeld</div>
+              <div class="editor-preview" id="editor-preview" style="min-height:260px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Of upload een PDF (optioneel)</label>
+          <input class="finput" type="file" id="doc-pdf" accept="application/pdf">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('doc-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanDoc()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Documentviewer ============ -->
+  <div class="overlay" id="doc-view-modal">
+    <div class="modal" style="max-width:700px">
+      <div class="modal-head">
+        <h2 id="doc-view-titel">Document</h2>
+        <button class="modal-close" onclick="closeModal('doc-view-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="doc-view-body" class="doc-viewer-body"></div>
+        <iframe id="doc-view-pdf" style="width:100%;height:500px;border:1px solid var(--card-border);border-radius:8px;display:none"></iframe>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger" id="doc-view-delete">
+          <i class="ph ph-trash"></i> Verwijderen
+        </button>
+        <button class="btn btn-ghost" onclick="closeModal('doc-view-modal')">Sluiten</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Nieuwe formule ============ -->
+  <div class="overlay" id="formule-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Nieuwe formule</h2>
+        <button class="modal-close" onclick="closeModal('formule-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Naam</label>
+          <input class="finput" id="form-naam" placeholder="bijv. Kwadratische formule">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">KaTeX-formule (gebruik geen $ tekens)</label>
+          <input class="finput" id="form-formule" placeholder="x = \frac{-b \pm \sqrt{b^2-4ac}}{2a}" oninput="ververFormulePreview()">
+          <div class="editor-preview" id="formule-preview" style="margin-top:10px;min-height:60px"></div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Categorie</label>
+          <input class="finput" id="form-categorie" placeholder="bijv. Algebra">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Omschrijving (optioneel)</label>
+          <input class="finput" id="form-omschrijving" placeholder="Korte uitleg">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('formule-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanFormule()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Nieuw woord ============ -->
+  <div class="overlay" id="woord-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Woord toevoegen</h2>
+        <button class="modal-close" onclick="closeModal('woord-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Woord</label>
+          <input class="finput" id="woord-term" placeholder="bijv. le devoir">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Definitie</label>
+          <input class="finput" id="woord-def" placeholder="bijv. het huiswerk, de plicht">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Voorbeeldzin (optioneel)</label>
+          <input class="finput" id="woord-voorbeeld" placeholder="J'ai fait mes devoirs hier soir.">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('woord-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanWoord()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Nieuwe oefening ============ -->
+  <div class="overlay" id="oefening-modal">
+    <div class="modal" style="max-width:680px">
+      <div class="modal-head">
+        <h2>Nieuwe oefening</h2>
+        <button class="modal-close" onclick="closeModal('oefening-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Titel</label>
+          <input class="finput" id="oef-titel" placeholder="bijv. Integraal van een gebroken functie">
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Opgave (Markdown — gebruik $formule$ voor KaTeX)</label>
+          <textarea class="ftextarea" id="oef-opgave" style="min-height:120px"
+            placeholder="Bereken $\int \frac{1}{x^2-1} dx$"></textarea>
+        </div>
+
+        <div class="fgrp">
+          <label class="flbl">Oplossing (Markdown — gebruik $formule$ voor KaTeX)</label>
+          <textarea class="ftextarea" id="oef-oplossing" style="min-height:160px"
+            placeholder="Stap 1: splits in partieelbreuken...&#10;&#10;$$...$$"></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fgrp">
+            <label class="flbl">Moeilijkheidsgraad</label>
+            <select class="fselect" id="oef-moeilijkheid">
+              <option value="1">★ Makkelijk</option>
+              <option value="2">★★ Vlot</option>
+              <option value="3" selected>★★★ Gemiddeld</option>
+              <option value="4">★★★★ Moeilijk</option>
+              <option value="5">★★★★★ Zeer moeilijk</option>
+            </select>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Tags (komma-gescheiden)</label>
+            <input class="finput" id="oef-tags" placeholder="integralen, partieelbreuken">
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('oefening-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanOefening()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Bron toevoegen ============ -->
+  <div class="overlay" id="bron-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="bron-modal-titel">Bron toevoegen</h2>
+        <button class="modal-close" onclick="closeModal('bron-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="bron-id">
+        <div class="fgrp">
+          <label class="flbl">Titel</label>
+          <input class="finput" id="bron-titel" placeholder="bijv. 3Blue1Brown — Essence of Calculus">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">URL (optioneel)</label>
+          <input class="finput" type="url" id="bron-url" placeholder="https://...">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="fgrp">
+            <label class="flbl">Type</label>
+            <select class="fselect" id="bron-type">
+              <option value="website">🌐 Website</option>
+              <option value="video">🎥 Video</option>
+              <option value="boek">📚 Boek</option>
+              <option value="paper">📄 Paper</option>
+              <option value="overig">Overig</option>
+            </select>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Beoordeling</label>
+            <select class="fselect" id="bron-rating">
+              <option value="5">★★★★★ Uitstekend</option>
+              <option value="4">★★★★ Goed</option>
+              <option value="3" selected>★★★ Gemiddeld</option>
+              <option value="2">★★ Matig</option>
+              <option value="1">★ Slecht</option>
+            </select>
+          </div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Persoonlijke notitie (optioneel)</label>
+          <input class="finput" id="bron-notitie" placeholder="bijv. Beste uitleg voor partieelintegratie">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('bron-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanBron()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ EXAMEN SIMULATIE OVERLAY ============ -->
+  <div id="simulatie-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:900;overflow-y:auto">
+    <!-- Setup scherm -->
+    <div id="sim-setup" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px">
+      <div style="max-width:440px;width:100%;text-align:center">
+        <div style="font-family:var(--display);font-size:2.5rem;font-weight:600;color:var(--navy);margin-bottom:8px">
+          Examen simulatie
+        </div>
+        <div style="font-size:.9rem;color:var(--muted);margin-bottom:32px" id="sim-vak-naam"></div>
+        <div style="font-size:.875rem;font-weight:600;color:var(--navy);margin-bottom:14px">Kies tijdslimiet</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:28px">
+          <button class="btn btn-ghost sim-tijd-btn" data-min="15" onclick="kiesTijd(15)">15 min</button>
+          <button class="btn btn-primary sim-tijd-btn" data-min="30" onclick="kiesTijd(30)">30 min</button>
+          <button class="btn btn-ghost sim-tijd-btn" data-min="45" onclick="kiesTijd(45)">45 min</button>
+          <button class="btn btn-ghost sim-tijd-btn" data-min="60" onclick="kiesTijd(60)">60 min</button>
+        </div>
+        <div style="font-size:.82rem;color:var(--muted);margin-bottom:24px" id="sim-vraag-info"></div>
+        <button class="btn btn-gold btn-lg" onclick="startSimulatie()">Start simulatie</button>
+        <br><button class="btn btn-ghost" style="margin-top:12px" onclick="sluitSimulatie()">Annuleren</button>
+      </div>
+    </div>
+
+    <!-- Vraag scherm -->
+    <div id="sim-vraag" style="display:none;padding:40px;max-width:800px;margin:0 auto">
+      <!-- Timer balk -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px">
+        <div>
+          <div style="font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">Vraag</div>
+          <div style="font-family:var(--display);font-size:1.5rem;font-weight:600;color:var(--navy)" id="sim-vraag-nr"></div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-family:var(--display);font-size:3rem;font-weight:600;color:var(--gold);line-height:1" id="sim-timer">30:00</div>
+          <div style="font-size:.72rem;color:var(--muted)">resterend</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="stopSimulatie()">Stop</button>
+      </div>
+
+      <div class="card">
+        <div style="font-size:.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">Opgave</div>
+        <div class="doc-viewer-body" id="sim-opgave-tekst"></div>
+
+        <div style="margin-top:20px">
+          <button class="btn btn-gold" id="sim-toon-opl-btn" onclick="simToonOplossing()">
+            <i class="ph ph-eye"></i> Toon oplossing
+          </button>
+        </div>
+
+        <div id="sim-oplossing-blok" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--card-border)">
+          <div style="font-size:.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">Oplossing</div>
+          <div class="doc-viewer-body" id="sim-oplossing-tekst"></div>
+          <div style="display:flex;gap:12px;margin-top:20px">
+            <button class="btn btn-primary" style="flex:1" onclick="simAntwoord(true)">
+              <i class="ph ph-check"></i> Correct
+            </button>
+            <button class="btn btn-danger" style="flex:1" onclick="simAntwoord(false)">
+              <i class="ph ph-x"></i> Fout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultaten scherm -->
+    <div id="sim-resultaat" style="display:none;display:none;align-items:center;justify-content:center;min-height:100vh;padding:40px">
+      <div style="max-width:560px;width:100%">
+        <div style="font-family:var(--display);font-size:2.5rem;font-weight:600;color:var(--navy);text-align:center;margin-bottom:8px">Resultaat</div>
+        <div style="text-align:center;margin-bottom:32px">
+          <div style="font-family:var(--display);font-size:5rem;font-weight:600;color:var(--gold);line-height:1" id="sim-score-pct"></div>
+          <div style="font-size:.875rem;color:var(--muted);margin-top:6px" id="sim-score-detail"></div>
+        </div>
+        <div id="sim-fouten-lijst" style="margin-bottom:28px"></div>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-gold" onclick="openSimulatie()">Opnieuw</button>
+          <button class="btn btn-ghost" onclick="sluitSimulatie()">Sluiten</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+    const vakId = new URLSearchParams(window.location.search).get('id');
+    let huidigVak = null;
+    let alleDocs = [];
+    let alleFormules = [];
+    let alleWoorden = [];
+    let actieveDocFilter = 'alle';
+    let actieveWoordFilter = 'alle';
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+
+      if (!vakId) { window.location.replace('./dashboard.html'); return; }
+
+      await renderZijbalk('vak-' + vakId);
+      await laadVak();
+      await Promise.all([laadDocumenten(), laadFormules(), laadWoorden(), laadOefeningen(), laadBronnen()]);
+    })();
+
+    /* ---- Vak laden -------------------------------------------- */
+    async function laadVak() {
+      const { data, error } = await db.from('subjects').select('*').eq('id', vakId).single();
+      if (error || !data) {
+        toast('Vak niet gevonden.', 'err');
+        setTimeout(() => window.location.replace('./dashboard.html'), 1500);
+        return;
+      }
+      huidigVak = data;
+      document.getElementById('vak-header').style.borderLeftColor = data.color;
+      document.getElementById('vak-header').innerHTML = `
+        <span class="vak-header-icon">${data.icon}</span>
+        <span class="vak-header-naam">${escHTML(data.name)}</span>`;
+      document.title = data.name + ' — School Dashboard';
+    }
+
+    /* ---- Tabs --------------------------------------------------- */
+    function wisselTab(naam) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('actief', t.dataset.tab === naam));
+      document.querySelectorAll('.tab-paneel').forEach(p => p.classList.remove('actief'));
+      document.getElementById('paneel-' + naam).classList.add('actief');
+    }
+
+    /* ================================================================
+       DOCUMENTEN
+       ================================================================ */
+    async function laadDocumenten() {
+      const { data } = await db.from('documents').select('*').eq('subject_id', vakId).order('created_at', { ascending: false });
+      alleDocs = data || [];
+      renderDocs();
+    }
+
+    function filterDocs(type) {
+      actieveDocFilter = type;
+      document.querySelectorAll('#doc-filters .doc-filter-btn').forEach(b =>
+        b.classList.toggle('actief', b.dataset.type === type));
+      renderDocs();
+    }
+
+    function renderDocs() {
+      const el = document.getElementById('doc-grid');
+      const lijst = actieveDocFilter === 'alle' ? alleDocs : alleDocs.filter(d => d.type === actieveDocFilter);
+
+      if (!lijst.length) {
+        el.innerHTML = `
+          <div class="leeg" style="grid-column:1/-1">
+            <div class="leeg-icon">📄</div>
+            <h3>Geen documenten gevonden</h3>
+            <p>Upload een samenvatting of schrijf er een.</p>
+            <button class="btn btn-gold btn-sm" onclick="openNieuwDoc()">Nieuw document</button>
+          </div>`;
+        return;
+      }
+
+      const badgeKleur = { samenvatting: 'gold', oefening: 'green', formuleblad: 'navy', notitie: 'neutral', overig: 'neutral' };
+
+      el.innerHTML = lijst.map(d => `
+        <div class="doc-kaart" onclick="bekijkDoc('${d.id}')">
+          <div class="doc-kaart-titel">${escHTML(d.title)}</div>
+          <div class="doc-kaart-meta">
+            <span class="badge badge-${badgeKleur[d.type] || 'neutral'}">${d.type}</span>
+            <span class="doc-kaart-datum">${datumNL(d.created_at)}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    function openNieuwDoc() {
+      document.getElementById('doc-modal-titel').textContent = 'Nieuw document';
+      document.getElementById('doc-id').value = '';
+      document.getElementById('doc-titel').value = '';
+      document.getElementById('doc-type').value = 'notitie';
+      document.getElementById('doc-inhoud').value = '';
+      document.getElementById('doc-pdf').value = '';
+      ververEditorPreview();
+      openModal('doc-modal');
+    }
+
+    function ververEditorPreview() {
+      const md = document.getElementById('doc-inhoud').value;
+      const html = marked.parse(md || '*Nog geen inhoud…*');
+      const prev = document.getElementById('editor-preview');
+      prev.innerHTML = html;
+      renderMathInElement(prev, { delimiters: [
+        { left: '$$', right: '$$', display: true },
+        { left: '$', right: '$', display: false }
+      ], throwOnError: false });
+    }
+
+    async function opslaanDoc() {
+      const titel  = document.getElementById('doc-titel').value.trim();
+      const type   = document.getElementById('doc-type').value;
+      const inhoud = document.getElementById('doc-inhoud').value;
+      const pdfFile = document.getElementById('doc-pdf').files[0];
+
+      if (!titel) { toast('Vul een titel in.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      let file_url = null;
+
+      if (pdfFile) {
+        const pad = `${user.id}/${vakId}/${Date.now()}_${pdfFile.name}`;
+        const { error: uploadErr } = await db.storage.from('documents').upload(pad, pdfFile);
+        if (uploadErr) { toast('PDF-upload mislukt: ' + uploadErr.message, 'err'); return; }
+        const { data: urlData } = db.storage.from('documents').getPublicUrl(pad);
+        file_url = urlData.publicUrl;
+      }
+
+      const payload = {
+        title: titel, type, content: inhoud || null, file_url,
+        subject_id: vakId, user_id: user.id, updated_at: new Date().toISOString()
+      };
+
+      const { error } = await db.from('documents').insert(payload);
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+
+      toast('Document opgeslagen ✓', 'ok');
+      closeModal('doc-modal');
+      await laadDocumenten();
+    }
+
+    function bekijkDoc(id) {
+      const d = alleDocs.find(x => x.id === id);
+      if (!d) return;
+
+      document.getElementById('doc-view-titel').textContent = d.title;
+      const body = document.getElementById('doc-view-body');
+      const pdfFrame = document.getElementById('doc-view-pdf');
+
+      if (d.file_url) {
+        body.style.display = 'none';
+        pdfFrame.style.display = 'block';
+        pdfFrame.src = d.file_url;
+      } else {
+        pdfFrame.style.display = 'none';
+        body.style.display = 'block';
+        body.innerHTML = marked.parse(d.content || '*Geen inhoud.*');
+        renderMathInElement(body, { delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false }
+        ], throwOnError: false });
+      }
+
+      document.getElementById('doc-view-delete').onclick = () => {
+        bevestig(`"${d.title}" verwijderen? Dit kan niet ongedaan gemaakt worden.`, async () => {
+          await db.from('documents').delete().eq('id', id);
+          toast('Document verwijderd', 'ok');
+          closeModal('doc-view-modal');
+          await laadDocumenten();
+        });
+      };
+
+      openModal('doc-view-modal');
+    }
+
+    /* ================================================================
+       FORMULES
+       ================================================================ */
+    async function laadFormules() {
+      const { data } = await db.from('formulas').select('*').eq('subject_id', vakId).order('name');
+      alleFormules = data || [];
+      renderFormules();
+    }
+
+    function renderFormules() {
+      const zoekterm = (document.getElementById('formule-zoek').value || '').toLowerCase();
+      const el = document.getElementById('formule-grid');
+
+      const lijst = alleFormules.filter(f =>
+        f.name.toLowerCase().includes(zoekterm) ||
+        (f.category || '').toLowerCase().includes(zoekterm));
+
+      if (!lijst.length) {
+        el.innerHTML = `
+          <div class="leeg" style="grid-column:1/-1">
+            <div class="leeg-icon">∑</div>
+            <h3>${alleFormules.length ? 'Geen resultaten' : 'Nog geen formules toegevoegd aan dit vak'}</h3>
+            <p>${alleFormules.length ? 'Pas je zoekopdracht aan.' : 'Voeg je eerste formule toe.'}</p>
+            ${!alleFormules.length ? '<button class="btn btn-gold btn-sm" onclick="openNieuweFormule()">Nieuwe formule</button>' : ''}
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = lijst.map(f => `
+        <div class="formule-kaart">
+          <div class="formule-naam">${escHTML(f.name)}</div>
+          <div class="formule-weergave" data-katex="${escHTML(f.formula)}"></div>
+          ${f.category ? `<span class="formule-categorie">${escHTML(f.category)}</span>` : ''}
+          ${f.description ? `<div class="formule-omschrijving">${escHTML(f.description)}</div>` : ''}
+        </div>`).join('');
+
+      // Render alle KaTeX-formules
+      document.querySelectorAll('[data-katex]').forEach(el => {
+        try {
+          katex.render(el.dataset.katex, el, { throwOnError: false, displayMode: false });
+        } catch (e) { el.textContent = el.dataset.katex; }
+      });
+    }
+
+    function openNieuweFormule() {
+      document.getElementById('form-naam').value = '';
+      document.getElementById('form-formule').value = '';
+      document.getElementById('form-categorie').value = '';
+      document.getElementById('form-omschrijving').value = '';
+      document.getElementById('formule-preview').innerHTML = '';
+      openModal('formule-modal');
+    }
+
+    function ververFormulePreview() {
+      const val = document.getElementById('form-formule').value;
+      const prev = document.getElementById('formule-preview');
+      try {
+        katex.render(val, prev, { throwOnError: false });
+      } catch (e) { prev.textContent = 'Ongeldige KaTeX-syntax'; }
+    }
+
+    async function opslaanFormule() {
+      const naam = document.getElementById('form-naam').value.trim();
+      const formule = document.getElementById('form-formule').value.trim();
+      const categorie = document.getElementById('form-categorie').value.trim();
+      const omschrijving = document.getElementById('form-omschrijving').value.trim();
+
+      if (!naam || !formule) { toast('Vul minstens naam en formule in.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const { error } = await db.from('formulas').insert({
+        name: naam, formula: formule, category: categorie || null,
+        description: omschrijving || null, subject_id: vakId, user_id: user.id
+      });
+
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+
+      toast('Formule opgeslagen ✓', 'ok');
+      closeModal('formule-modal');
+      await laadFormules();
+    }
+
+    /* ================================================================
+       WOORDEN
+       ================================================================ */
+    async function laadWoorden() {
+      const { data } = await db.from('vocabulary').select('*').eq('subject_id', vakId).order('term');
+      alleWoorden = data || [];
+      renderWoorden();
+    }
+
+    function filterWoorden(type) {
+      actieveWoordFilter = type;
+      document.querySelectorAll('[data-mastered]').forEach(b =>
+        b.classList.toggle('actief', b.dataset.mastered === type));
+      renderWoorden();
+    }
+
+    function renderWoorden() {
+      const tbody = document.getElementById('woord-tbody');
+      const lijst = actieveWoordFilter === 'niet' ? alleWoorden.filter(w => !w.mastered) : alleWoorden;
+
+      if (!lijst.length) {
+        tbody.innerHTML = `<tr><td colspan="5">
+          <div class="leeg">
+            <div class="leeg-icon">🗣️</div>
+            <h3>Nog geen woorden toegevoegd</h3>
+            <p>Bouw je woordenlijst op voor dit vak.</p>
+            <button class="btn btn-gold btn-sm" onclick="openNieuwWoord()">Woord toevoegen</button>
+          </div></td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = lijst.map(w => `
+        <tr>
+          <td class="woord-term">${escHTML(w.term)}</td>
+          <td>${escHTML(w.definition)}</td>
+          <td class="woord-voorbeeld">${w.example ? escHTML(w.example) : '—'}</td>
+          <td>
+            <input type="checkbox" ${w.mastered ? 'checked' : ''}
+              onchange="toggleMastered('${w.id}', this.checked)">
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="verwijderWoord('${w.id}')">
+              <i class="ph ph-trash"></i>
+            </button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function toggleMastered(id, mastered) {
+      await db.from('vocabulary').update({ mastered }).eq('id', id);
+      await laadWoorden();
+    }
+
+    async function verwijderWoord(id) {
+      bevestig('Dit woord verwijderen?', async () => {
+        await db.from('vocabulary').delete().eq('id', id);
+        toast('Woord verwijderd', 'ok');
+        await laadWoorden();
+      });
+    }
+
+    function openNieuwWoord() {
+      document.getElementById('woord-term').value = '';
+      document.getElementById('woord-def').value = '';
+      document.getElementById('woord-voorbeeld').value = '';
+      openModal('woord-modal');
+    }
+
+    async function opslaanWoord() {
+      const term = document.getElementById('woord-term').value.trim();
+      const def  = document.getElementById('woord-def').value.trim();
+      const voorbeeld = document.getElementById('woord-voorbeeld').value.trim();
+
+      if (!term || !def) { toast('Vul minstens het woord en de definitie in.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const { error } = await db.from('vocabulary').insert({
+        term, definition: def, example: voorbeeld || null,
+        subject_id: vakId, user_id: user.id
+      });
+
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+
+      toast('Woord toegevoegd ✓', 'ok');
+      closeModal('woord-modal');
+      await laadWoorden();
+    }
+
+    /* ================================================================
+       OEFENINGEN
+       ================================================================ */
+    let alleOefeningen = [];
+    let actieveOefFilter = 'alle';
+
+    async function laadOefeningen() {
+      const { data } = await db.from('practice_problems').select('*').eq('subject_id', vakId).order('created_at', { ascending: false });
+      alleOefeningen = data || [];
+      renderOefeningen();
+    }
+
+    function filterOefeningen(diff) {
+      actieveOefFilter = diff;
+      document.querySelectorAll('[data-diff]').forEach(b => b.classList.toggle('actief', b.dataset.diff === diff));
+      renderOefeningen();
+    }
+
+    function renderOefeningen() {
+      const el = document.getElementById('oefening-lijst');
+      const lijst = actieveOefFilter === 'alle'
+        ? alleOefeningen
+        : alleOefeningen.filter(o => String(o.difficulty) === actieveOefFilter);
+
+      if (!lijst.length) {
+        el.innerHTML = `
+          <div class="leeg">
+            <div class="leeg-icon">📝</div>
+            <h3>${alleOefeningen.length ? 'Geen resultaten' : 'Nog geen oefeningen toegevoegd'}</h3>
+            <p>${alleOefeningen.length ? 'Pas het filter aan.' : 'Voeg je eerste oefening toe met uitgewerkte oplossing.'}</p>
+            ${!alleOefeningen.length ? '<button class="btn btn-gold btn-sm" onclick="openNieuweOefening()">Nieuwe oefening</button>' : ''}
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = lijst.map(o => {
+        const sterren = '★'.repeat(o.difficulty) + '☆'.repeat(5 - o.difficulty);
+        const tagsHTML = (o.tags || []).map(t => `<span class="badge badge-neutral">${escHTML(t)}</span>`).join(' ');
+        return `
+          <div class="card" style="margin-bottom:12px;cursor:pointer" onclick="toggleOefening('${o.id}')">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="flex:1">
+                <div style="font-size:.9375rem;font-weight:600;color:var(--navy);margin-bottom:4px">${escHTML(o.title)}</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="color:var(--gold);font-size:.8rem;letter-spacing:1px">${sterren}</span>
+                  ${tagsHTML}
+                </div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();verwijderOefening('${o.id}')">
+                <i class="ph ph-trash"></i>
+              </button>
+            </div>
+            <div id="oef-detail-${o.id}" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--card-border)">
+              <div class="card-lbl" style="margin-bottom:8px">Opgave</div>
+              <div class="doc-viewer-body" id="oef-opgave-${o.id}" style="margin-bottom:16px"></div>
+              <button class="btn btn-gold btn-sm" onclick="event.stopPropagation();toonOplossing('${o.id}')" id="oef-opl-btn-${o.id}">
+                <i class="ph ph-eye"></i> Toon oplossing
+              </button>
+              <div class="doc-viewer-body" id="oef-oplossing-${o.id}" style="display:none;margin-top:14px;padding:14px;background:var(--bg);border-radius:8px"></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function toggleOefening(id) {
+      const detail = document.getElementById('oef-detail-' + id);
+      const nuOpen = detail.style.display === 'block';
+      detail.style.display = nuOpen ? 'none' : 'block';
+      if (!nuOpen) {
+        const o = alleOefeningen.find(x => x.id === id);
+        const opgaveEl = document.getElementById('oef-opgave-' + id);
+        opgaveEl.innerHTML = marked.parse(o.problem || '');
+        renderMathInElement(opgaveEl, { delimiters: [
+          { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }
+        ], throwOnError: false });
+      }
+    }
+
+    function toonOplossing(id) {
+      const o = alleOefeningen.find(x => x.id === id);
+      const el = document.getElementById('oef-oplossing-' + id);
+      el.innerHTML = marked.parse(o.solution || '');
+      el.style.display = 'block';
+      renderMathInElement(el, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }
+      ], throwOnError: false });
+      document.getElementById('oef-opl-btn-' + id).style.display = 'none';
+    }
+
+    function openNieuweOefening() {
+      document.getElementById('oef-titel').value = '';
+      document.getElementById('oef-opgave').value = '';
+      document.getElementById('oef-oplossing').value = '';
+      document.getElementById('oef-moeilijkheid').value = '3';
+      document.getElementById('oef-tags').value = '';
+      openModal('oefening-modal');
+    }
+
+    async function opslaanOefening() {
+      const titel      = document.getElementById('oef-titel').value.trim();
+      const opgave     = document.getElementById('oef-opgave').value.trim();
+      const oplossing  = document.getElementById('oef-oplossing').value.trim();
+      const moeilijkh  = parseInt(document.getElementById('oef-moeilijkheid').value);
+      const tagsRaw    = document.getElementById('oef-tags').value.trim();
+      const tags       = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      if (!titel || !opgave || !oplossing) { toast('Vul titel, opgave en oplossing in.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const { error } = await db.from('practice_problems').insert({
+        title: titel, problem: opgave, solution: oplossing,
+        difficulty: moeilijkh, tags, subject_id: vakId, user_id: user.id
+      });
+
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+
+      toast('Oefening opgeslagen ✓', 'ok');
+      closeModal('oefening-modal');
+      await laadOefeningen();
+    }
+
+    async function verwijderOefening(id) {
+      bevestig('Deze oefening verwijderen?', async () => {
+        await db.from('practice_problems').delete().eq('id', id);
+        toast('Oefening verwijderd', 'ok');
+        await laadOefeningen();
+      });
+    }
+
+    /* ================================================================
+       EDIT VOOR DOCUMENTEN
+       ================================================================ */
+    function openEditDoc(id) {
+      const d = alleDocs.find(x => x.id === id);
+      if (!d) return;
+      closeModal('doc-view-modal');
+      document.getElementById('doc-modal-titel').textContent = 'Document bewerken';
+      document.getElementById('doc-id').value = d.id;
+      document.getElementById('doc-titel').value = d.title;
+      document.getElementById('doc-type').value = d.type;
+      document.getElementById('doc-inhoud').value = d.content || '';
+      ververEditorPreview();
+      openModal('doc-modal');
+    }
+
+    // Override bekijkDoc om edit-knop toe te voegen
+    const _origBekijkDoc = bekijkDoc;
+    bekijkDoc = function(id) {
+      const d = alleDocs.find(x => x.id === id);
+      if (!d) return;
+      document.getElementById('doc-view-titel').textContent = d.title;
+      const body = document.getElementById('doc-view-body');
+      const pdfFrame = document.getElementById('doc-view-pdf');
+      if (d.file_url) {
+        body.style.display = 'none'; pdfFrame.style.display = 'block'; pdfFrame.src = d.file_url;
+      } else {
+        pdfFrame.style.display = 'none'; body.style.display = 'block';
+        body.innerHTML = marked.parse(d.content || '*Geen inhoud.*');
+        renderMathInElement(body, { delimiters: [
+          { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }
+        ], throwOnError: false });
+      }
+      document.getElementById('doc-view-delete').onclick = () => {
+        bevestig(`"${d.title}" verwijderen?`, async () => {
+          await db.from('documents').delete().eq('id', id);
+          toast('Document verwijderd', 'ok'); closeModal('doc-view-modal'); await laadDocumenten();
+        });
+      };
+      // Voeg edit-knop toe als die er nog niet is
+      const foot = document.querySelector('#doc-view-modal .modal-footer');
+      if (foot) {
+        let editBtn = document.getElementById('doc-view-edit');
+        if (!editBtn) {
+          editBtn = document.createElement('button');
+          editBtn.id = 'doc-view-edit';
+          editBtn.className = 'btn btn-ghost';
+          editBtn.innerHTML = '<i class="ph ph-pencil-simple"></i> Bewerken';
+          foot.insertBefore(editBtn, foot.firstChild);
+        }
+        editBtn.onclick = () => openEditDoc(id);
+      }
+      openModal('doc-view-modal');
+    };
+
+    // Override opslaanDoc om edit te ondersteunen
+    const _origOpslaanDoc = opslaanDoc;
+    opslaanDoc = async function() {
+      const id     = document.getElementById('doc-id').value;
+      const titel  = document.getElementById('doc-titel').value.trim();
+      const type   = document.getElementById('doc-type').value;
+      const inhoud = document.getElementById('doc-inhoud').value;
+      const pdfFile = document.getElementById('doc-pdf').files[0];
+      if (!titel) { toast('Vul een titel in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      let file_url = null;
+      if (pdfFile) {
+        const pad = `${user.id}/${vakId}/${Date.now()}_${pdfFile.name}`;
+        const { error: uploadErr } = await db.storage.from('documents').upload(pad, pdfFile);
+        if (uploadErr) { toast('PDF-upload mislukt: ' + uploadErr.message, 'err'); return; }
+        const { data: urlData } = db.storage.from('documents').getPublicUrl(pad);
+        file_url = urlData.publicUrl;
+      }
+      const payload = { title: titel, type, content: inhoud || null, updated_at: new Date().toISOString() };
+      if (file_url) payload.file_url = file_url;
+      let error;
+      if (id) {
+        ({ error } = await db.from('documents').update(payload).eq('id', id));
+      } else {
+        payload.subject_id = vakId; payload.user_id = user.id;
+        ({ error } = await db.from('documents').insert(payload));
+      }
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+      toast(id ? 'Document bijgewerkt ✓' : 'Document opgeslagen ✓', 'ok');
+      closeModal('doc-modal'); await laadDocumenten();
+    };
+
+    /* ================================================================
+       EDIT VOOR FORMULES
+       ================================================================ */
+    // Override renderFormules om edit-knop toe te voegen per kaart
+    const _origRenderFormules = renderFormules;
+    renderFormules = function() {
+      const zoekterm = (document.getElementById('formule-zoek').value || '').toLowerCase();
+      const el = document.getElementById('formule-grid');
+      const lijst = alleFormules.filter(f =>
+        f.name.toLowerCase().includes(zoekterm) || (f.category || '').toLowerCase().includes(zoekterm));
+      if (!lijst.length) {
+        el.innerHTML = `<div class="leeg" style="grid-column:1/-1">
+          <div class="leeg-icon">∑</div>
+          <h3>${alleFormules.length ? 'Geen resultaten' : 'Nog geen formules'}</h3>
+          <p>${alleFormules.length ? '' : 'Voeg je eerste formule toe.'}</p>
+          ${!alleFormules.length ? '<button class="btn btn-gold btn-sm" onclick="openNieuweFormule()">Nieuwe formule</button>' : ''}
+        </div>`;
+        return;
+      }
+      el.innerHTML = lijst.map(f => `
+        <div class="formule-kaart">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <div class="formule-naam">${escHTML(f.name)}</div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" onclick="openEditFormule('${f.id}')"><i class="ph ph-pencil-simple"></i></button>
+              <button class="btn btn-ghost btn-sm" onclick="verwijderFormule('${f.id}')"><i class="ph ph-trash"></i></button>
+            </div>
+          </div>
+          <div class="formule-weergave" data-katex="${escHTML(f.formula)}"></div>
+          ${f.category ? `<span class="formule-categorie">${escHTML(f.category)}</span>` : ''}
+          ${f.description ? `<div class="formule-omschrijving">${escHTML(f.description)}</div>` : ''}
+        </div>`).join('');
+      document.querySelectorAll('[data-katex]').forEach(el => {
+        try { katex.render(el.dataset.katex, el, { throwOnError: false }); } catch (e) { el.textContent = el.dataset.katex; }
+      });
+    };
+
+    function openEditFormule(id) {
+      const f = alleFormules.find(x => x.id === id);
+      if (!f) return;
+      document.getElementById('form-naam').value = f.name;
+      document.getElementById('form-formule').value = f.formula;
+      document.getElementById('form-categorie').value = f.category || '';
+      document.getElementById('form-omschrijving').value = f.description || '';
+      document.getElementById('form-formule').dataset.editId = id;
+      ververFormulePreview();
+      openModal('formule-modal');
+    }
+
+    async function verwijderFormule(id) {
+      bevestig('Deze formule verwijderen?', async () => {
+        await db.from('formulas').delete().eq('id', id);
+        toast('Formule verwijderd', 'ok'); await laadFormules();
+      });
+    }
+
+    const _origOpslaanFormule = opslaanFormule;
+    opslaanFormule = async function() {
+      const naam        = document.getElementById('form-naam').value.trim();
+      const formule     = document.getElementById('form-formule').value.trim();
+      const categorie   = document.getElementById('form-categorie').value.trim();
+      const omschrijving = document.getElementById('form-omschrijving').value.trim();
+      const editId      = document.getElementById('form-formule').dataset.editId;
+      if (!naam || !formule) { toast('Vul naam en formule in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      const payload = { name: naam, formula: formule, category: categorie || null, description: omschrijving || null };
+      let error;
+      if (editId) {
+        ({ error } = await db.from('formulas').update(payload).eq('id', editId));
+        delete document.getElementById('form-formule').dataset.editId;
+      } else {
+        payload.subject_id = vakId; payload.user_id = user.id;
+        ({ error } = await db.from('formulas').insert(payload));
+      }
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+      toast(editId ? 'Formule bijgewerkt ✓' : 'Formule opgeslagen ✓', 'ok');
+      closeModal('formule-modal'); await laadFormules();
+    };
+
+    /* ================================================================
+       EDIT VOOR WOORDEN
+       ================================================================ */
+    const _origRenderWoorden = renderWoorden;
+    renderWoorden = function() {
+      const tbody = document.getElementById('woord-tbody');
+      const lijst = actieveWoordFilter === 'niet' ? alleWoorden.filter(w => !w.mastered) : alleWoorden;
+      if (!lijst.length) {
+        tbody.innerHTML = `<tr><td colspan="6">
+          <div class="leeg"><div class="leeg-icon">🗣️</div>
+          <h3>Nog geen woorden</h3><p>Voeg woorden toe via de knop bovenaan.</p></div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = lijst.map(w => `
+        <tr>
+          <td class="woord-term">${escHTML(w.term)}</td>
+          <td>${escHTML(w.definition)}</td>
+          <td class="woord-voorbeeld">${w.example ? escHTML(w.example) : '—'}</td>
+          <td><input type="checkbox" ${w.mastered ? 'checked' : ''} onchange="toggleMastered('${w.id}', this.checked)"></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openEditWoord('${w.id}')"><i class="ph ph-pencil-simple"></i></button>
+          </td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="verwijderWoord('${w.id}')"><i class="ph ph-trash"></i></button>
+          </td>
+        </tr>`).join('');
+    };
+
+    // Update tabel header om kolom toe te voegen
+    document.addEventListener('DOMContentLoaded', () => {
+      const th = document.querySelector('.woord-tabel thead tr');
+      if (th && th.children.length === 5) {
+        const editTh = document.createElement('th');
+        th.insertBefore(editTh, th.children[4]);
+      }
+    });
+
+    function openEditWoord(id) {
+      const w = alleWoorden.find(x => x.id === id);
+      if (!w) return;
+      document.getElementById('woord-term').value = w.term;
+      document.getElementById('woord-def').value = w.definition;
+      document.getElementById('woord-voorbeeld').value = w.example || '';
+      document.getElementById('woord-term').dataset.editId = id;
+      openModal('woord-modal');
+    }
+
+    const _origOpslaanWoord = opslaanWoord;
+    opslaanWoord = async function() {
+      const term    = document.getElementById('woord-term').value.trim();
+      const def     = document.getElementById('woord-def').value.trim();
+      const vb      = document.getElementById('woord-voorbeeld').value.trim();
+      const editId  = document.getElementById('woord-term').dataset.editId;
+      if (!term || !def) { toast('Vul woord en definitie in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      let error;
+      if (editId) {
+        ({ error } = await db.from('vocabulary').update({ term, definition: def, example: vb || null }).eq('id', editId));
+        delete document.getElementById('woord-term').dataset.editId;
+      } else {
+        ({ error } = await db.from('vocabulary').insert({ term, definition: def, example: vb || null, subject_id: vakId, user_id: user.id }));
+      }
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+      toast(editId ? 'Woord bijgewerkt ✓' : 'Woord toegevoegd ✓', 'ok');
+      closeModal('woord-modal'); await laadWoorden();
+    };
+
+    // Reset edit ID when modal opens fresh
+    const _origOpenNieuwWoord = openNieuwWoord;
+    openNieuwWoord = function() {
+      delete document.getElementById('woord-term')?.dataset?.editId;
+      document.getElementById('woord-term').value = '';
+      document.getElementById('woord-def').value = '';
+      document.getElementById('woord-voorbeeld').value = '';
+      openModal('woord-modal');
+    };
+
+    /* ================================================================
+       BRONNEN
+       ================================================================ */
+    let alleBronnen = [], actieveBronFilter = 'alle';
+
+    async function laadBronnen() {
+      const { data } = await db.from('resources').select('*').eq('subject_id', vakId).order('title');
+      alleBronnen = data || [];
+      renderBronnen();
+    }
+
+    function filterBronnen(type) {
+      actieveBronFilter = type;
+      document.querySelectorAll('[data-btype]').forEach(b => b.classList.toggle('actief', b.dataset.btype === type));
+      renderBronnen();
+    }
+
+    function renderBronnen() {
+      const el = document.getElementById('bronnen-grid');
+      const lijst = actieveBronFilter === 'alle' ? alleBronnen : alleBronnen.filter(b => b.type === actieveBronFilter);
+      const typeIcoon = { boek: '📚', video: '🎥', website: '🌐', paper: '📄', overig: '🔖' };
+      if (!lijst.length) {
+        el.innerHTML = `<div class="leeg" style="grid-column:1/-1">
+          <div class="leeg-icon">🔖</div>
+          <h3>${alleBronnen.length ? 'Geen resultaten' : 'Nog geen bronnen toegevoegd'}</h3>
+          <p>Voeg handboeken, video's of websites toe voor dit vak.</p>
+          ${!alleBronnen.length ? '<button class="btn btn-gold btn-sm" onclick="openNieuweBron()">Bron toevoegen</button>' : ''}
+        </div>`;
+        return;
+      }
+      el.innerHTML = lijst.map(b => `
+        <div class="doc-kaart">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+            <div>
+              <div class="doc-kaart-titel">
+                ${typeIcoon[b.type] || '🔖'} ${b.url
+                  ? `<a href="${escHTML(b.url)}" target="_blank" style="color:var(--navy);text-decoration:underline">${escHTML(b.title)}</a>`
+                  : escHTML(b.title)}
+              </div>
+              ${b.note ? `<div style="font-size:.8rem;color:var(--muted);margin-top:4px">${escHTML(b.note)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn btn-ghost btn-sm" onclick="openEditBron('${b.id}')"><i class="ph ph-pencil-simple"></i></button>
+              <button class="btn btn-ghost btn-sm" onclick="verwijderBron('${b.id}')"><i class="ph ph-trash"></i></button>
+            </div>
+          </div>
+          <div class="doc-kaart-meta">
+            <span class="badge badge-neutral">${b.type}</span>
+            <span style="color:var(--gold);letter-spacing:1px;font-size:.8rem">${'★'.repeat(b.rating || 0)}</span>
+          </div>
+        </div>`).join('');
+    }
+
+    function openNieuweBron() {
+      document.getElementById('bron-modal-titel').textContent = 'Bron toevoegen';
+      document.getElementById('bron-id').value = '';
+      document.getElementById('bron-titel').value = '';
+      document.getElementById('bron-url').value = '';
+      document.getElementById('bron-type').value = 'website';
+      document.getElementById('bron-rating').value = '3';
+      document.getElementById('bron-notitie').value = '';
+      openModal('bron-modal');
+    }
+
+    function openEditBron(id) {
+      const b = alleBronnen.find(x => x.id === id);
+      if (!b) return;
+      document.getElementById('bron-modal-titel').textContent = 'Bron bewerken';
+      document.getElementById('bron-id').value = b.id;
+      document.getElementById('bron-titel').value = b.title;
+      document.getElementById('bron-url').value = b.url || '';
+      document.getElementById('bron-type').value = b.type;
+      document.getElementById('bron-rating').value = b.rating || 3;
+      document.getElementById('bron-notitie').value = b.note || '';
+      openModal('bron-modal');
+    }
+
+    async function opslaanBron() {
+      const id     = document.getElementById('bron-id').value;
+      const titel  = document.getElementById('bron-titel').value.trim();
+      const url    = document.getElementById('bron-url').value.trim();
+      const type   = document.getElementById('bron-type').value;
+      const rating = parseInt(document.getElementById('bron-rating').value);
+      const notitie = document.getElementById('bron-notitie').value.trim();
+      if (!titel) { toast('Vul een titel in.', 'err'); return; }
+      const user = await huidigGebruiker();
+      const payload = { title: titel, url: url || null, type, rating, note: notitie || null };
+      let error;
+      if (id) {
+        ({ error } = await db.from('resources').update(payload).eq('id', id));
+      } else {
+        payload.subject_id = vakId; payload.user_id = user.id;
+        ({ error } = await db.from('resources').insert(payload));
+      }
+      if (error) { toast('Opslaan mislukt: ' + error.message, 'err'); return; }
+      toast(id ? 'Bron bijgewerkt ✓' : 'Bron toegevoegd ✓', 'ok');
+      closeModal('bron-modal'); await laadBronnen();
+    }
+
+    async function verwijderBron(id) {
+      bevestig('Deze bron verwijderen?', async () => {
+        await db.from('resources').delete().eq('id', id);
+        toast('Bron verwijderd', 'ok'); await laadBronnen();
+      });
+    }
+
+    /* ================================================================
+       EXAMEN SIMULATIE
+       ================================================================ */
+    let simVragen = [], simHuidigeIdx = 0, simCorrect = 0, simFouten = [];
+    let simTijdMinuten = 30, simTimerInterval = null, simSecondenResterend = 0;
+
+    function openSimulatie() {
+      if (!alleOefeningen.length) { toast('Voeg eerst oefeningen toe aan dit vak.', 'err'); return; }
+      document.getElementById('sim-setup').style.display = 'flex';
+      document.getElementById('sim-vraag').style.display = 'none';
+      document.getElementById('sim-resultaat').style.display = 'none';
+      document.getElementById('sim-vraag-info').textContent =
+        `${alleOefeningen.length} oefening${alleOefeningen.length !== 1 ? 'en' : ''} beschikbaar`;
+      document.getElementById('sim-vak-naam').textContent = huidigVak?.name || '';
+      kiesTijd(30);
+      document.getElementById('simulatie-overlay').style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+
+    function kiesTijd(min) {
+      simTijdMinuten = min;
+      document.querySelectorAll('.sim-tijd-btn').forEach(b => {
+        b.classList.toggle('btn-primary', parseInt(b.dataset.min) === min);
+        b.classList.toggle('btn-ghost',   parseInt(b.dataset.min) !== min);
+      });
+    }
+
+    function startSimulatie() {
+      // Schud de vragen door elkaar
+      simVragen = [...alleOefeningen].sort(() => Math.random() - 0.5);
+      simHuidigeIdx = 0; simCorrect = 0; simFouten = [];
+      simSecondenResterend = simTijdMinuten * 60;
+      document.getElementById('sim-setup').style.display = 'none';
+      document.getElementById('sim-resultaat').style.display = 'none';
+      document.getElementById('sim-vraag').style.display = 'block';
+      simTimerInterval = setInterval(simTimerTick, 1000);
+      simToonVraag();
+    }
+
+    function simTimerTick() {
+      simSecondenResterend--;
+      const m = Math.floor(simSecondenResterend / 60);
+      const s = simSecondenResterend % 60;
+      const timerEl = document.getElementById('sim-timer');
+      timerEl.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      timerEl.style.color = simSecondenResterend < 60 ? 'var(--danger)' : 'var(--gold)';
+      if (simSecondenResterend <= 0) simToonResultaat();
+    }
+
+    function simToonVraag() {
+      if (simHuidigeIdx >= simVragen.length) { simToonResultaat(); return; }
+      const o = simVragen[simHuidigeIdx];
+      document.getElementById('sim-vraag-nr').textContent =
+        `${simHuidigeIdx + 1} / ${simVragen.length}`;
+      const opgEl = document.getElementById('sim-opgave-tekst');
+      opgEl.innerHTML = marked.parse(o.problem || '');
+      renderMathInElement(opgEl, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }
+      ], throwOnError: false });
+      document.getElementById('sim-oplossing-blok').style.display = 'none';
+      document.getElementById('sim-toon-opl-btn').style.display = 'inline-flex';
+    }
+
+    function simToonOplossing() {
+      const o = simVragen[simHuidigeIdx];
+      const oplEl = document.getElementById('sim-oplossing-tekst');
+      oplEl.innerHTML = marked.parse(o.solution || '');
+      renderMathInElement(oplEl, { delimiters: [
+        { left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }
+      ], throwOnError: false });
+      document.getElementById('sim-oplossing-blok').style.display = 'block';
+      document.getElementById('sim-toon-opl-btn').style.display = 'none';
+    }
+
+    function simAntwoord(correct) {
+      if (correct) { simCorrect++; }
+      else { simFouten.push(simVragen[simHuidigeIdx]); }
+      simHuidigeIdx++;
+      simToonVraag();
+    }
+
+    function stopSimulatie() {
+      bevestig('Simulatie stoppen en resultaten zien?', () => simToonResultaat());
+    }
+
+    function simToonResultaat() {
+      clearInterval(simTimerInterval);
+      const totaal = simHuidigeIdx;
+      const pct = totaal > 0 ? Math.round(simCorrect / totaal * 100) : 0;
+      document.getElementById('sim-vraag').style.display = 'none';
+      const res = document.getElementById('sim-resultaat');
+      res.style.display = 'flex';
+      document.getElementById('sim-score-pct').textContent = pct + '%';
+      document.getElementById('sim-score-pct').style.color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--gold)' : 'var(--danger)';
+      document.getElementById('sim-score-detail').textContent = `${simCorrect} van ${totaal} correct`;
+      const foutenEl = document.getElementById('sim-fouten-lijst');
+      if (simFouten.length) {
+        foutenEl.innerHTML = `<div style="font-size:.82rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px">
+          Fout beantwoord (${simFouten.length})</div>` +
+          simFouten.map(f => `<div class="card" style="margin-bottom:8px;padding:14px 16px">
+            <div style="font-size:.875rem;font-weight:600;color:var(--navy)">${escHTML(f.title)}</div>
+            <div style="font-size:.78rem;color:var(--muted)">${'★'.repeat(f.difficulty)}</div>
+          </div>`).join('');
+      } else {
+        foutenEl.innerHTML = `<div style="text-align:center;color:var(--green);font-size:.9rem;padding:16px 0">
+          🎉 Alles correct beantwoord!</div>`;
+      }
+    }
+
+    function sluitSimulatie() {
+      clearInterval(simTimerInterval);
+      document.getElementById('simulatie-overlay').style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  </script>
+</body>
+</html>

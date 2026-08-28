@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Cijfers</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Lay-out -------------------------------------------- */
+    .cijfers-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    /* ---- Vaklist -------------------------------------------- */
+    .vak-selector-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--r-sm);
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: var(--text-sec);
+      transition: all 0.12s;
+      border: 1px solid transparent;
+    }
+    .vak-selector-item:hover { background: var(--bg); color: var(--navy); }
+    .vak-selector-item.actief {
+      background: var(--white);
+      border-color: var(--card-border);
+      color: var(--navy);
+      font-weight: 600;
+      box-shadow: var(--shadow-card);
+    }
+
+    /* ---- Groot gemiddelde ----------------------------------- */
+    .gem-display {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .gem-getal {
+      font-family: var(--display);
+      font-size: 4.5rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .gem-max {
+      font-family: var(--display);
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--muted);
+    }
+
+    .gem-kleur-goed   { color: var(--green); }
+    .gem-kleur-mid    { color: var(--gold-dark); }
+    .gem-kleur-slecht { color: var(--danger); }
+
+    /* ---- Trendgrafiek (SVG) --------------------------------- */
+    .grafiek-wrapper {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 20px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 20px;
+    }
+
+    .grafiek-lijn {
+      fill: none;
+      stroke: var(--gold);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .grafiek-punt {
+      fill: var(--white);
+      stroke: var(--gold);
+      stroke-width: 2;
+    }
+
+    /* ---- Cijfertabel ---------------------------------------- */
+    .cijfer-tabel {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .cijfer-tabel th {
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--card-border);
+    }
+
+    .cijfer-tabel td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: middle;
+    }
+
+    .cijfer-tabel tr:last-child td { border-bottom: none; }
+    .cijfer-tabel tr:hover td { background: var(--bg); }
+
+    .cijfer-score {
+      font-family: var(--display);
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .cijfer-pct {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    /* ---- Target calculator ---------------------------------- */
+    .target-sectie {
+      background: var(--gold-bg);
+      border: 1px solid var(--gold-border);
+      border-radius: var(--r);
+      padding: 20px;
+    }
+
+    .target-sectie-titel {
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 12px;
+    }
+
+    .target-resultaat {
+      font-family: var(--display);
+      font-size: 2rem;
+      font-weight: 600;
+      color: var(--gold);
+      margin-top: 10px;
+    }
+
+    .target-uitleg {
+      font-size: 0.82rem;
+      color: var(--text-sec);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div style="margin-bottom:32px">
+        <div class="pg-eyebrow">Prestaties</div>
+        <div class="pg-title" style="font-size:2.25rem">Cijfers</div>
+        <div class="pg-sub">Bijhouden, analyseren en je eindscore plannen.</div>
+      </div>
+
+      <div class="cijfers-layout">
+
+        <!-- ===== LINKS: Vaklist ===== -->
+        <div>
+          <div class="card-lbl" style="margin-bottom:10px">Vakken</div>
+          <div id="vak-lijst">
+            <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+          </div>
+        </div>
+
+        <!-- ===== RECHTS: Content ===== -->
+        <div id="rechts-content">
+          <div class="leeg" style="padding:40px 0">
+            <div class="leeg-icon">🎯</div>
+            <h3>Kies een vak links</h3>
+            <p>Selecteer een vak om de cijfers en statistieken te zien.</p>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ MODAL: Punt toevoegen ============ -->
+  <div class="overlay" id="punt-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Punt toevoegen</h2>
+        <button class="modal-close" onclick="closeModal('punt-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Naam/omschrijving</label>
+          <input class="finput" id="punt-naam" placeholder="bijv. Toets Hoofdstuk 3">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="fgrp">
+            <label class="flbl">Jouw score</label>
+            <input class="finput" type="number" id="punt-score" min="0" step="0.5" placeholder="15">
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Op hoeveel?</label>
+            <input class="finput" type="number" id="punt-max" value="20" min="1">
+          </div>
+          <div class="fgrp">
+            <label class="flbl">Gewicht</label>
+            <input class="finput" type="number" id="punt-gewicht" value="1" min="0.1" step="0.1">
+          </div>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Datum</label>
+          <input class="finput" type="date" id="punt-datum">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('punt-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanPunt()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    let alleVakken = [], actieveVakId = null, actievePunten = [];
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('cijfers');
+      await laadVakken();
+    })();
+
+    async function laadVakken() {
+      const { data } = await db.from('subjects').select('*').order('name');
+      alleVakken = data || [];
+      renderVakLijst();
+      if (alleVakken.length) selecteerVak(alleVakken[0].id);
+    }
+
+    function renderVakLijst() {
+      const el = document.getElementById('vak-lijst');
+      if (!alleVakken.length) {
+        el.innerHTML = `<div style="color:var(--muted);font-size:.82rem">Geen vakken.</div>`;
+        return;
+      }
+      el.innerHTML = alleVakken.map(v => `
+        <div class="vak-selector-item ${actieveVakId === v.id ? 'actief' : ''}"
+             onclick="selecteerVak('${v.id}')">
+          <span style="width:9px;height:9px;border-radius:50%;background:${v.color};flex-shrink:0"></span>
+          <span>${escHTML(v.name)}</span>
+        </div>`).join('');
+    }
+
+    async function selecteerVak(id) {
+      actieveVakId = id;
+      renderVakLijst();
+      await laadPunten();
+    }
+
+    async function laadPunten() {
+      const { data } = await db.from('grades').select('*').eq('subject_id', actieveVakId).order('date');
+      actievePunten = data || [];
+      renderContent();
+    }
+
+    function renderContent() {
+      const vak = alleVakken.find(v => v.id === actieveVakId);
+      if (!vak) return;
+      const el = document.getElementById('rechts-content');
+
+      // Gewogen gemiddelde berekenen
+      let gemiddelde = null;
+      if (actievePunten.length) {
+        const totaalGewicht = actievePunten.reduce((s, p) => s + (p.weight || 1), 0);
+        const gewogenSom    = actievePunten.reduce((s, p) => s + (p.score / p.max_score * 100 * (p.weight || 1)), 0);
+        gemiddelde = gewogenSom / totaalGewicht;
+      }
+
+      const gemKlasse = gemiddelde === null ? '' : gemiddelde >= 70 ? 'gem-kleur-goed' : gemiddelde >= 50 ? 'gem-kleur-mid' : 'gem-kleur-slecht';
+      const gemTekst  = gemiddelde === null ? '—' : gemiddelde.toFixed(1) + '%';
+
+      el.innerHTML = `
+        <!-- Boven: gemiddelde + knop -->
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-head">
+            <div>
+              <div class="card-lbl">${escHTML(vak.name)} — Gewogen gemiddelde</div>
+              <div class="gem-display">
+                <div class="gem-getal ${gemKlasse}">${gemiddelde === null ? '—' : gemiddelde.toFixed(1)}</div>
+                <div class="gem-max">${gemiddelde === null ? '' : '/ 100'}</div>
+              </div>
+              <div style="font-size:.82rem;color:var(--muted)">${actievePunten.length} punt${actievePunten.length !== 1 ? 'en' : ''} ingevoerd</div>
+            </div>
+            <button class="btn btn-gold" onclick="openNieuwPunt()">
+              <i class="ph ph-plus"></i> Punt toevoegen
+            </button>
+          </div>
+        </div>
+
+        <!-- Trendgrafiek -->
+        ${actievePunten.length >= 2 ? renderGrafiek(vak) : ''}
+
+        <!-- Target calculator -->
+        <div class="target-sectie" style="margin-bottom:20px">
+          <div class="target-sectie-titel">🎯 Target calculator</div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="font-size:.875rem;color:var(--navy)">Ik wil</label>
+            <input type="number" id="target-input" class="finput" style="width:80px;padding:8px 12px"
+              placeholder="75" min="0" max="100" oninput="berekenTarget()">
+            <label style="font-size:.875rem;color:var(--navy)">% als eindscore halen.</label>
+          </div>
+          <div id="target-resultaat" class="target-uitleg" style="margin-top:10px"></div>
+        </div>
+
+        <!-- Punten tabel -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--card-border)">
+            <span class="card-title">Alle punten</span>
+          </div>
+          ${actievePunten.length
+            ? `<table class="cijfer-tabel">
+                <thead><tr>
+                  <th>Omschrijving</th><th>Score</th><th>%</th><th>Gewicht</th><th>Datum</th><th></th>
+                </tr></thead>
+                <tbody>${actievePunten.map(p => {
+                  const pct = (p.score / p.max_score * 100).toFixed(1);
+                  const kleur = pct >= 70 ? 'var(--green)' : pct >= 50 ? '#B07820' : 'var(--danger)';
+                  return `<tr>
+                    <td><strong>${escHTML(p.title)}</strong></td>
+                    <td>
+                      <span class="cijfer-score">${p.score}</span>
+                      <span class="cijfer-pct">/ ${p.max_score}</span>
+                    </td>
+                    <td><span style="font-weight:600;color:${kleur}">${pct}%</span></td>
+                    <td>${p.weight}×</td>
+                    <td style="color:var(--muted)">${datumNL(p.date)}</td>
+                    <td>
+                      <button class="btn btn-ghost btn-sm" onclick="verwijderPunt('${p.id}')">
+                        <i class="ph ph-trash"></i>
+                      </button>
+                    </td>
+                  </tr>`;
+                }).join('')}</tbody>
+              </table>`
+            : `<div class="leeg">
+                <div class="leeg-icon">📊</div>
+                <h3>Nog geen punten voor ${escHTML(vak.name)}</h3>
+                <p>Voeg je eerste resultaat toe.</p>
+                <button class="btn btn-gold btn-sm" onclick="openNieuwPunt()">Punt toevoegen</button>
+              </div>`}
+        </div>`;
+    }
+
+    /* ---- SVG Trendgrafiek ---------------------------------- */
+    function renderGrafiek(vak) {
+      const punten = actievePunten.filter(p => p.date);
+      if (punten.length < 2) return '';
+
+      const W = 540, H = 150, PAD = 30;
+      const pcts = punten.map(p => p.score / p.max_score * 100);
+      const minY = Math.max(0, Math.min(...pcts) - 10);
+      const maxY = Math.min(100, Math.max(...pcts) + 10);
+      const rangeY = maxY - minY || 1;
+
+      const puntenSVG = pcts.map((v, i) => ({
+        x: PAD + (i / (pcts.length - 1)) * (W - PAD * 2),
+        y: H - PAD - ((v - minY) / rangeY) * (H - PAD * 2)
+      }));
+
+      const lijnpad = puntenSVG.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
+      const opvulpad = lijnpad + ` L${puntenSVG[puntenSVG.length-1].x},${H-PAD} L${puntenSVG[0].x},${H-PAD} Z`;
+
+      return `
+        <div class="grafiek-wrapper">
+          <div class="card-lbl" style="margin-bottom:12px">Verloop over tijd</div>
+          <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
+            <path d="${opvulpad}" fill="${vak.color || 'var(--gold)'}" opacity="0.08"/>
+            <path d="${lijnpad}" class="grafiek-lijn" stroke="${vak.color || 'var(--gold)'}"/>
+            ${puntenSVG.map((p, i) => `
+              <circle cx="${p.x}" cy="${p.y}" r="4" class="grafiek-punt" stroke="${vak.color || 'var(--gold)'}"/>
+              <text x="${p.x}" y="${p.y - 8}" text-anchor="middle"
+                font-size="9" fill="var(--muted)" font-family="Inter">${pcts[i].toFixed(0)}%</text>
+            `).join('')}
+            <line x1="${PAD}" y1="${H-PAD}" x2="${W-PAD}" y2="${H-PAD}"
+              stroke="var(--card-border)" stroke-width="1"/>
+          </svg>
+        </div>`;
+    }
+
+    /* ---- Target calculator ---------------------------------- */
+    function berekenTarget() {
+      const el = document.getElementById('target-resultaat');
+      if (!el) return;
+      const doel = parseFloat(document.getElementById('target-input').value);
+      if (isNaN(doel) || doel < 0 || doel > 100) { el.textContent = ''; return; }
+
+      if (!actievePunten.length) {
+        el.textContent = `Je moet ${doel.toFixed(1)}% halen op elk punt.`;
+        return;
+      }
+
+      const totaalGewicht = actievePunten.reduce((s, p) => s + (p.weight || 1), 0);
+      const huidigGewogenSom = actievePunten.reduce((s, p) => s + (p.score / p.max_score * 100 * (p.weight || 1)), 0);
+      const gemHuidig = huidigGewogenSom / totaalGewicht;
+
+      // Simuleer: volgend punt telt met gewicht 1
+      const nodigPct = (doel * (totaalGewicht + 1) - huidigGewogenSom);
+
+      if (nodigPct <= 0) {
+        el.innerHTML = `<span style="color:var(--green);font-weight:600">✓ Je hebt al ${gemHuidig.toFixed(1)}% — je target is al bereikt!</span>`;
+      } else if (nodigPct > 100) {
+        el.innerHTML = `<span style="color:var(--danger)">Het target van ${doel}% is met je huidige punten niet meer haalbaar (je zou ${nodigPct.toFixed(1)}% nodig hebben op het volgende punt).</span>`;
+      } else {
+        el.innerHTML = `Je hebt nu <strong>${gemHuidig.toFixed(1)}%</strong>. Op je volgende punt moet je <strong style="color:var(--gold)">${nodigPct.toFixed(1)}%</strong> halen om ${doel}% te bereiken.`;
+      }
+    }
+
+    /* ---- Punt toevoegen/verwijderen ------------------------ */
+    function openNieuwPunt() {
+      document.getElementById('punt-naam').value = '';
+      document.getElementById('punt-score').value = '';
+      document.getElementById('punt-max').value = '20';
+      document.getElementById('punt-gewicht').value = '1';
+      document.getElementById('punt-datum').value = new Date().toISOString().split('T')[0];
+      openModal('punt-modal');
+    }
+
+    async function opslaanPunt() {
+      const naam    = document.getElementById('punt-naam').value.trim();
+      const score   = parseFloat(document.getElementById('punt-score').value);
+      const max     = parseFloat(document.getElementById('punt-max').value);
+      const gewicht = parseFloat(document.getElementById('punt-gewicht').value);
+      const datum   = document.getElementById('punt-datum').value;
+
+      if (!naam || isNaN(score) || isNaN(max) || !datum) { toast('Vul alle verplichte velden in.', 'err'); return; }
+      if (score < 0 || score > max) { toast('Score kan niet groter zijn dan het maximum.', 'err'); return; }
+
+      const user = await huidigGebruiker();
+      const { error } = await db.from('grades').insert({
+        title: naam, score, max_score: max, weight: gewicht || 1, date: datum,
+        subject_id: actieveVakId, user_id: user.id
+      });
+
+      if (error) { toast('Fout: ' + error.message, 'err'); return; }
+      toast('Punt opgeslagen ✓', 'ok');
+      closeModal('punt-modal');
+      await laadPunten();
+    }
+
+    async function verwijderPunt(id) {
+      bevestig('Dit punt verwijderen?', async () => {
+        await db.from('grades').delete().eq('id', id);
+        toast('Punt verwijderd', 'ok');
+        await laadPunten();
+      });
+    }
+  </script>
+</body>
+</html>

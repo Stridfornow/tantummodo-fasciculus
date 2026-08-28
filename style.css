@@ -1,0 +1,432 @@
+/* ================================================================
+   SCHOOL DASHBOARD — Design System
+   Versie 2 — Cormorant Garamond + Inter + JetBrains Mono
+   Exacte kleuren van de originele prompts.
+   ================================================================ */
+
+/* --- Reset --------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+/* --- Design Tokens ------------------------------------------ */
+:root {
+  /* Kleuren — exact zoals gespecifieerd in de prompt */
+  --bg:            #F5F2EC;   /* Warm ivoor — paginaachtergrond    */
+  --white:         #FFFFFF;
+  --sidebar-bg:    #1A2744;   /* Diep marineblauw — zijbalk        */
+  --sidebar-text:  #E8E4DB;   /* Warme off-white — zijbalktekst    */
+  --navy:          #1A2744;   /* Primaire tekstkleur               */
+  --gold:          #C4963A;   /* Goud — accent, actieve items, CTA */
+  --gold-bg:       rgba(196,150,58,0.12);
+  --gold-border:   rgba(196,150,58,0.3);
+  --green:         #4A7B6F;   /* Slate groen — succes, wetenschap  */
+  --green-bg:      #EDF5F2;
+  --text-primary:  #1A2744;
+  --text-sec:      #6B6459;   /* Warme grijs — secundaire tekst    */
+  --card-bg:       #FFFFFF;
+  --card-border:   #E8E4DB;
+  --danger:        #B85C4A;
+  --danger-bg:     #FDF0EE;
+  --muted:         #9A9087;
+
+  /* Typografie */
+  --display:   'Cormorant Garamond', Georgia, serif;
+  --body:      'Inter', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', 'Courier New', monospace;
+
+  /* Schaduwen */
+  --shadow-card: 0 1px 3px rgba(26,39,68,0.06), 0 4px 24px rgba(26,39,68,0.04);
+  --shadow-md:   0 4px 16px rgba(26,39,68,0.10), 0 1px 4px rgba(26,39,68,0.06);
+
+  /* Maten */
+  --sidebar-w: 256px;
+  --r:         10px;
+  --r-sm:       6px;
+  --r-lg:      14px;
+}
+
+/* --- Base ---------------------------------------------------- */
+body {
+  font-family: var(--body);
+  background: var(--bg);
+  color: var(--text-primary);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* --- Sidebar ------------------------------------------------- */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 0 0 28px;
+}
+
+.sidebar-brand {
+  padding: 28px 24px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-bottom: 8px;
+}
+
+.sidebar-brand-name {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.sidebar-brand-user {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.38);
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sectielabels in de zijbalk */
+.sidebar-section {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  padding: 18px 24px 6px;
+}
+
+/* Navigatielinks */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px 9px 20px;
+  margin: 1px 10px;
+  border-radius: var(--r-sm);
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.6);
+  transition: background 0.13s, color 0.13s;
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: calc(100% - 20px);
+  text-align: left;
+}
+
+.sidebar-link:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.9);
+}
+
+.sidebar-link.actief {
+  background: var(--gold-bg);
+  color: #fff;
+  font-weight: 500;
+  border-left: 3px solid var(--gold);
+  padding-left: 17px;
+}
+
+.sidebar-link i { font-size: 1rem; width: 20px; flex-shrink: 0; }
+
+/* Vak-subitems */
+.sidebar-vak {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 44px;
+  margin: 1px 10px;
+  border-radius: var(--r-sm);
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.45);
+  transition: color 0.13s, background 0.13s;
+}
+
+.sidebar-vak:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.04); }
+.sidebar-vak.actief { color: #fff; }
+
+.vak-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+
+/* --- Hoofdlay-out ------------------------------------------- */
+.layout { display: flex; min-height: 100vh; }
+
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  padding: 52px 56px 88px;
+  max-width: 1120px;
+}
+
+/* --- Paginaheaders ------------------------------------------ */
+.pg-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.pg-title {
+  font-family: var(--display);
+  font-size: 2.75rem;
+  font-weight: 600;
+  color: var(--navy);
+  line-height: 1.12;
+}
+
+.pg-sub {
+  font-size: 0.9375rem;
+  color: var(--text-sec);
+  margin-top: 8px;
+}
+
+/* --- Kaarten ------------------------------------------------ */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow-card);
+  padding: 26px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.card-title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+
+.card-lbl {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+/* Grote getalskaart */
+.big-num {
+  font-family: var(--display);
+  font-size: 3.5rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--navy);
+}
+.big-num.gold  { color: var(--gold); }
+.big-num.green { color: var(--green); }
+.big-num.red   { color: var(--danger); }
+
+/* --- Knoppen ------------------------------------------------ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--r-sm);
+  font-family: var(--body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.13s;
+  line-height: 1;
+}
+
+.btn-primary { background: var(--navy); color: #fff; }
+.btn-primary:hover { background: #243452; }
+
+.btn-gold { background: var(--gold); color: #fff; }
+.btn-gold:hover { background: #b58830; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-sec);
+  border: 1px solid var(--card-border);
+}
+.btn-ghost:hover { background: var(--bg); color: var(--navy); }
+
+.btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #ecc5be; }
+.btn-sm { padding: 6px 13px; font-size: 0.8125rem; }
+.btn-lg { padding: 12px 26px; font-size: 1rem; }
+.btn-full { width: 100%; justify-content: center; }
+
+/* --- Formulieren -------------------------------------------- */
+.fgrp { margin-bottom: 18px; }
+
+.flbl {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--navy);
+  margin-bottom: 7px;
+}
+
+.finput, .fselect, .ftextarea {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--white);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-sm);
+  font-family: var(--body);
+  font-size: 0.9rem;
+  color: var(--navy);
+  outline: none;
+  transition: border-color 0.13s, box-shadow 0.13s;
+}
+
+.finput:focus, .fselect:focus, .ftextarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(196,150,58,0.14);
+}
+
+.finput::placeholder { color: var(--muted); }
+.ftextarea { resize: vertical; min-height: 110px; line-height: 1.6; }
+
+/* --- Badges ------------------------------------------------- */
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge-navy    { background: var(--navy); color: #fff; }
+.badge-gold    { background: var(--gold-bg); color: #7a5c1a; border: 1px solid var(--gold-border); }
+.badge-green   { background: var(--green-bg); color: var(--green); }
+.badge-red     { background: var(--danger-bg); color: var(--danger); }
+.badge-neutral { background: var(--bg); color: var(--muted); border: 1px solid var(--card-border); }
+
+/* --- Grid hulpklassen --------------------------------------- */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* --- Modal -------------------------------------------------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,20,40,0.52);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s;
+  padding: 20px;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+
+.modal {
+  background: var(--white);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  width: 100%; max-width: 500px;
+  max-height: 90vh; overflow-y: auto;
+  transform: translateY(14px);
+  transition: transform 0.18s;
+}
+.overlay.open .modal { transform: translateY(0); }
+
+.modal-head {
+  padding: 24px 28px 0;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+}
+.modal-head h2 {
+  font-family: var(--display);
+  font-size: 1.25rem; font-weight: 600;
+}
+.modal-close {
+  background: none; border: none; font-size: 1.3rem;
+  cursor: pointer; color: var(--muted); line-height: 1;
+}
+.modal-close:hover { color: var(--navy); }
+.modal-body { padding: 20px 28px; }
+.modal-foot { padding: 0 28px 24px; display: flex; gap: 10px; justify-content: flex-end; }
+
+/* --- Toasts ------------------------------------------------- */
+.toasts {
+  position: fixed; bottom: 26px; right: 26px;
+  z-index: 900;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.toast {
+  background: var(--navy); color: #fff;
+  padding: 12px 18px; border-radius: var(--r-sm);
+  font-size: 0.875rem; box-shadow: var(--shadow-md);
+  animation: fadeUp 0.2s ease;
+  max-width: 300px;
+}
+.toast.ok  { background: var(--green); }
+.toast.err { background: var(--danger); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Leeg scherm -------------------------------------------- */
+.leeg {
+  text-align: center;
+  padding: 48px 20px;
+}
+.leeg-icon { font-size: 2.5rem; margin-bottom: 14px; opacity: 0.55; }
+.leeg h3 {
+  font-family: var(--body); font-weight: 600;
+  font-size: 0.9375rem; color: var(--text-sec);
+  margin-bottom: 6px;
+}
+.leeg p { font-size: 0.875rem; color: var(--muted); margin-bottom: 18px; }
+
+/* --- Divider ------------------------------------------------ */
+hr { border: none; border-top: 1px solid var(--card-border); margin: 28px 0; }
+
+/* --- Code --------------------------------------------------- */
+code {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  background: #EEF0F4;
+  color: var(--navy);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+pre {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  background: #1E293B;
+  color: #E2E8F0;
+  padding: 18px 22px;
+  border-radius: var(--r);
+  overflow-x: auto;
+  line-height: 1.65;
+}
+
+/* --- Scrollbar ---------------------------------------------- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }

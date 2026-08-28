@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>School Dashboard — Statistieken</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
+
+  <style>
+    /* ---- Heatmap ------------------------------------------- */
+    .heatmap-wrapper {
+      background: var(--white);
+      border: 1px solid var(--card-border);
+      border-radius: var(--r);
+      padding: 24px 28px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+
+    .heatmap-rij {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .hm-maand-lbl {
+      font-size: 0.68rem;
+      color: var(--muted);
+      width: 28px;
+      flex-shrink: 0;
+      text-align: right;
+      padding-right: 6px;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(53, 1fr);
+      gap: 3px;
+    }
+
+    .hm-cel {
+      width: 13px; height: 13px;
+      border-radius: 2px;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      cursor: default;
+      transition: opacity 0.1s;
+    }
+    .hm-cel:hover { opacity: 0.75; }
+    .hm-cel[data-n="1"] { background: #F0DCB0; border-color: #E8C87A; }
+    .hm-cel[data-n="2"] { background: var(--gold); border-color: var(--gold); }
+    .hm-cel[data-n="3"] { background: #8A6820; border-color: #8A6820; }
+    .hm-cel[data-n="4"] { background: var(--navy); border-color: var(--navy); }
+
+    .heatmap-legenda {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .hm-legenda-cel {
+      width: 12px; height: 12px;
+      border-radius: 2px;
+    }
+
+    /* ---- Stat kaarten rij ---------------------------------- */
+    .stat-rij { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+
+    /* ---- Gemiddelden grafiek (SVG) ------------------------- */
+    .gem-balk-rij {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .gem-balk-rij:last-child { border-bottom: none; }
+
+    .gem-vak-naam {
+      width: 130px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--navy);
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .gem-balk-container {
+      flex: 1;
+      height: 10px;
+      background: var(--bg);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .gem-balk-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 0.4s ease;
+    }
+
+    .gem-pct {
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      min-width: 52px;
+      text-align: right;
+    }
+
+    /* ---- Studietijd loggen --------------------------------- */
+    .sessie-rij {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--card-border);
+      font-size: 0.875rem;
+    }
+    .sessie-rij:last-child { border-bottom: none; }
+
+    .sessie-vak-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .sessie-uren {
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gold);
+      min-width: 40px;
+    }
+
+    .sessie-datum { color: var(--muted); font-size: 0.78rem; margin-left: auto; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="zijbalk"></div>
+
+    <main class="main">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px">
+        <div>
+          <div class="pg-eyebrow">Analyse</div>
+          <div class="pg-title" style="font-size:2.25rem">Statistieken</div>
+          <div class="pg-sub">Studieactiviteit, prestaties en voortgang over de tijd.</div>
+        </div>
+        <button class="btn btn-gold" onclick="openLogSessie()" style="margin-top:8px">
+          <i class="ph ph-clock"></i> Studietijd loggen
+        </button>
+      </div>
+
+      <!-- Stat kaarten -->
+      <div class="stat-rij">
+        <div class="stat-kaart card">
+          <div class="card-lbl">Huidige streek</div>
+          <div class="big-num gold" id="sn-streak">—</div>
+          <div style="font-size:.8rem;color:var(--muted)">opeenvolgende dagen</div>
+        </div>
+        <div class="stat-kaart card">
+          <div class="card-lbl">Langste streek</div>
+          <div class="big-num" id="sn-max-streak">—</div>
+          <div style="font-size:.8rem;color:var(--muted)">dagen ooit</div>
+        </div>
+        <div class="stat-kaart card">
+          <div class="card-lbl">Uren deze maand</div>
+          <div class="big-num" id="sn-maand-uren">—</div>
+          <div style="font-size:.8rem;color:var(--muted)">studieuren totaal</div>
+        </div>
+        <div class="stat-kaart card">
+          <div class="card-lbl">Totaal dit jaar</div>
+          <div class="big-num" id="sn-jaar-uren">—</div>
+          <div style="font-size:.8rem;color:var(--muted)">studieuren</div>
+        </div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="heatmap-wrapper">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="card-title">Studieactiviteit — afgelopen jaar</div>
+        </div>
+        <div class="heatmap-grid" id="heatmap-grid"></div>
+        <div class="heatmap-legenda">
+          <span>Minder</span>
+          <div class="hm-legenda-cel" style="background:var(--bg);border:1px solid var(--card-border)"></div>
+          <div class="hm-legenda-cel" style="background:#F0DCB0"></div>
+          <div class="hm-legenda-cel" style="background:var(--gold)"></div>
+          <div class="hm-legenda-cel" style="background:#8A6820"></div>
+          <div class="hm-legenda-cel" style="background:var(--navy)"></div>
+          <span>Meer</span>
+        </div>
+      </div>
+
+      <!-- Twee kolommen -->
+      <div class="g2">
+
+        <!-- Gemiddelden per vak -->
+        <div class="card">
+          <div class="card-head" style="margin-bottom:18px">
+            <div class="card-title">Gemiddelden per vak</div>
+          </div>
+          <div id="gem-lijst">
+            <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+          </div>
+        </div>
+
+        <!-- Studietijd per vak -->
+        <div class="card">
+          <div class="card-head" style="margin-bottom:18px">
+            <div class="card-title">Studietijd per vak</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="wisselPeriode('week')" id="btn-week">Week</button>
+              <button class="btn btn-ghost btn-sm" onclick="wisselPeriode('maand')" id="btn-maand">Maand</button>
+            </div>
+          </div>
+          <div id="uren-lijst">
+            <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Recente studiesessies -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-head" style="margin-bottom:16px">
+          <div class="card-title">Recente studiesessies</div>
+        </div>
+        <div id="sessies-lijst">
+          <div style="color:var(--muted);font-size:.875rem">Laden…</div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal: studietijd loggen -->
+  <div class="overlay" id="log-modal">
+    <div class="modal">
+      <div class="modal-head">
+        <h2>Studietijd loggen</h2>
+        <button class="modal-close" onclick="closeModal('log-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="fgrp">
+          <label class="flbl">Vak</label>
+          <select class="fselect" id="log-vak"></select>
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Datum</label>
+          <input class="finput" type="date" id="log-datum">
+        </div>
+        <div class="fgrp">
+          <label class="flbl">Studieduur (minuten)</label>
+          <input class="finput" type="number" id="log-minuten" min="5" step="5" placeholder="60">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" onclick="closeModal('log-modal')">Annuleren</button>
+        <button class="btn btn-primary" onclick="opslaanSessie()">Opslaan</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="./js/supabase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/notifications.js"></script>
+  <script>
+    let alleVakken = [], actievePeriode = 'week';
+
+    (async () => {
+      const sessie = await requireAuth();
+      if (!sessie) return;
+      await renderZijbalk('statistieken');
+      const { data: vakken } = await db.from('subjects').select('*').order('name');
+      alleVakken = vakken || [];
+      vulVakSelect();
+      await Promise.all([
+        laadStreaks(),
+        laadGemiddelden(),
+        laadUren(),
+        laadSessies(),
+      ]);
+    })();
+
+    /* ---- Streaks & Heatmap --------------------------------- */
+    async function laadStreaks() {
+      const jaarGeleden = new Date();
+      jaarGeleden.setFullYear(jaarGeleden.getFullYear() - 1);
+      const { data: dagen } = await db
+        .from('study_days')
+        .select('date, total_minutes')
+        .gte('date', jaarGeleden.toISOString().split('T')[0])
+        .order('date');
+
+      const minutenMap = {};
+      (dagen || []).forEach(d => { minutenMap[d.date] = d.total_minutes; });
+
+      const nu = new Date();
+      const nuStr = nu.toISOString().split('T')[0];
+      const dagenSet = new Set(Object.keys(minutenMap));
+
+      // Huidige streek
+      let streak = 0;
+      for (let i = 0; i < 365; i++) {
+        const d = new Date(nu);
+        d.setDate(d.getDate() - i);
+        const k = d.toISOString().split('T')[0];
+        if (dagenSet.has(k)) streak++;
+        else if (i > 0) break;
+      }
+
+      // Langste streek
+      let maxStreak = 0, tmp = 0;
+      const gesorteerd = [...dagenSet].sort();
+      let vorige = null;
+      gesorteerd.forEach(d => {
+        if (vorige) {
+          const diff = (new Date(d) - new Date(vorige)) / 86400000;
+          tmp = diff === 1 ? tmp + 1 : 1;
+        } else { tmp = 1; }
+        maxStreak = Math.max(maxStreak, tmp);
+        vorige = d;
+      });
+
+      // Maand- en jaaruren
+      const maandBegin = new Date(nu.getFullYear(), nu.getMonth(), 1).toISOString().split('T')[0];
+      const jaarBegin  = `${nu.getFullYear()}-01-01`;
+      let maandMin = 0, jaarMin = 0;
+      (dagen || []).forEach(d => {
+        if (d.date >= maandBegin) maandMin += d.total_minutes;
+        if (d.date >= jaarBegin)  jaarMin  += d.total_minutes;
+      });
+
+      document.getElementById('sn-streak').textContent     = streak;
+      document.getElementById('sn-max-streak').textContent = maxStreak;
+      document.getElementById('sn-maand-uren').textContent = (maandMin / 60).toFixed(1);
+      document.getElementById('sn-jaar-uren').textContent  = (jaarMin  / 60).toFixed(1);
+
+      renderHeatmap(minutenMap);
+    }
+
+    function renderHeatmap(minutenMap) {
+      const grid = document.getElementById('heatmap-grid');
+      const nu = new Date();
+      // Begin op de maandag 52 weken geleden
+      const start = new Date(nu);
+      start.setDate(start.getDate() - 364);
+      // Ga naar vorige maandag
+      const dag = start.getDay();
+      start.setDate(start.getDate() - (dag === 0 ? 6 : dag - 1));
+
+      grid.innerHTML = '';
+      const vandaag = nu.toISOString().split('T')[0];
+
+      for (let i = 0; i < 371; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        const k = d.toISOString().split('T')[0];
+        if (k > vandaag) { grid.appendChild(Object.assign(document.createElement('div'), { className: 'hm-cel' })); continue; }
+        const min = minutenMap[k] || 0;
+        const n = min === 0 ? 0 : min < 30 ? 1 : min < 90 ? 2 : min < 180 ? 3 : 4;
+        const cel = document.createElement('div');
+        cel.className = 'hm-cel';
+        cel.dataset.n = n;
+        cel.title = `${k}: ${min} min`;
+        grid.appendChild(cel);
+      }
+    }
+
+    /* ---- Gemiddelden per vak ------------------------------- */
+    async function laadGemiddelden() {
+      const { data: punten } = await db.from('grades').select('score, max_score, weight, subject_id');
+      const el = document.getElementById('gem-lijst');
+
+      if (!alleVakken.length || !punten?.length) {
+        el.innerHTML = `<div class="leeg" style="padding:16px 0">
+          <div class="leeg-icon">📊</div><h3>Nog geen cijfers</h3>
+          <p>Voeg punten toe via de Cijfers-pagina.</p></div>`;
+        return;
+      }
+
+      const perVak = {};
+      punten.forEach(p => {
+        if (!perVak[p.subject_id]) perVak[p.subject_id] = [];
+        perVak[p.subject_id].push(p);
+      });
+
+      const vakGems = alleVakken.map(v => {
+        const lijst = perVak[v.id] || [];
+        if (!lijst.length) return null;
+        const gew  = lijst.reduce((s, p) => s + (p.weight || 1), 0);
+        const som  = lijst.reduce((s, p) => s + (p.score / p.max_score * 100 * (p.weight || 1)), 0);
+        return { naam: v.name, kleur: v.color, gem: som / gew };
+      }).filter(Boolean).sort((a, b) => b.gem - a.gem);
+
+      el.innerHTML = vakGems.map(v => {
+        const kleur = v.gem >= 70 ? v.kleur || 'var(--green)' : v.gem >= 50 ? '#B07820' : 'var(--danger)';
+        return `
+          <div class="gem-balk-rij">
+            <div class="gem-vak-naam">${escHTML(v.naam)}</div>
+            <div class="gem-balk-container">
+              <div class="gem-balk-fill" style="width:${v.gem.toFixed(1)}%;background:${kleur}"></div>
+            </div>
+            <div class="gem-pct" style="color:${kleur}">${v.gem.toFixed(1)}%</div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ---- Studietijd per vak -------------------------------- */
+    async function wisselPeriode(p) {
+      actievePeriode = p;
+      document.getElementById('btn-week').classList.toggle('btn-primary', p === 'week');
+      document.getElementById('btn-week').classList.toggle('btn-ghost', p !== 'week');
+      document.getElementById('btn-maand').classList.toggle('btn-primary', p === 'maand');
+      document.getElementById('btn-maand').classList.toggle('btn-ghost', p !== 'maand');
+      await laadUren();
+    }
+
+    async function laadUren() {
+      const nu = new Date();
+      let vanafStr;
+      if (actievePeriode === 'week') {
+        const ma = new Date(nu);
+        ma.setDate(nu.getDate() - ((nu.getDay() + 6) % 7));
+        vanafStr = ma.toISOString().split('T')[0];
+      } else {
+        vanafStr = new Date(nu.getFullYear(), nu.getMonth(), 1).toISOString().split('T')[0];
+      }
+
+      const { data: sessies } = await db
+        .from('study_sessions')
+        .select('subject_id, duration_minutes')
+        .gte('date', vanafStr);
+
+      const el = document.getElementById('uren-lijst');
+      if (!sessies?.length) {
+        el.innerHTML = `<div style="color:var(--muted);font-size:.875rem;padding:12px 0">
+          Geen studietijd gelogd ${actievePeriode === 'week' ? 'deze week' : 'deze maand'}.</div>`;
+        return;
+      }
+
+      const perVak = {};
+      sessies.forEach(s => { perVak[s.subject_id] = (perVak[s.subject_id] || 0) + s.duration_minutes; });
+      const maxMin = Math.max(...Object.values(perVak));
+
+      el.innerHTML = alleVakken
+        .filter(v => perVak[v.id])
+        .sort((a, b) => (perVak[b.id] || 0) - (perVak[a.id] || 0))
+        .map(v => {
+          const min = perVak[v.id] || 0;
+          return `
+            <div class="gem-balk-rij">
+              <div class="gem-vak-naam">${escHTML(v.name)}</div>
+              <div class="gem-balk-container">
+                <div class="gem-balk-fill" style="width:${Math.round(min/maxMin*100)}%;background:${v.color}"></div>
+              </div>
+              <div style="font-family:var(--display);font-size:1.1rem;font-weight:600;color:var(--gold);min-width:60px;text-align:right">
+                ${(min/60).toFixed(1)} u
+              </div>
+            </div>`;
+        }).join('');
+    }
+
+    /* ---- Recente sessies ----------------------------------- */
+    async function laadSessies() {
+      const { data: sessies } = await db
+        .from('study_sessions')
+        .select('*, subjects(name,color)')
+        .order('date', { ascending: false })
+        .limit(10);
+
+      const el = document.getElementById('sessies-lijst');
+      if (!sessies?.length) {
+        el.innerHTML = `<div class="leeg" style="padding:12px 0">
+          <div class="leeg-icon">⏱</div>
+          <h3>Nog geen sessies gelogd</h3>
+          <p>Klik op "Studietijd loggen" om je eerste sessie toe te voegen.</p>
+          <button class="btn btn-gold btn-sm" onclick="openLogSessie()">Studietijd loggen</button>
+        </div>`;
+        return;
+      }
+
+      el.innerHTML = sessies.map(s => `
+        <div class="sessie-rij">
+          <span class="sessie-vak-dot" style="background:${s.subjects?.color || 'var(--gold)'}"></span>
+          <span style="font-size:.875rem;font-weight:500;color:var(--navy);flex:1">
+            ${escHTML(s.subjects?.name || 'Onbekend vak')}
+          </span>
+          <span class="sessie-uren">${(s.duration_minutes / 60).toFixed(1)} u</span>
+          <span class="sessie-datum">${datumNL(s.date)}</span>
+        </div>`).join('');
+    }
+
+    /* ---- Modal: sessie loggen ----------------------------- */
+    function vulVakSelect() {
+      document.getElementById('log-vak').innerHTML =
+        alleVakken.map(v => `<option value="${v.id}">${escHTML(v.name)}</option>`).join('');
+      document.getElementById('log-datum').value = new Date().toISOString().split('T')[0];
+
+      // Initieel actieve periode-knoppen
+      document.getElementById('btn-week').classList.add('btn-primary');
+      document.getElementById('btn-maand').classList.add('btn-ghost');
+    }
+
+    function openLogSessie() { openModal('log-modal'); }
+
+    async function opslaanSessie() {
+      const vakId   = document.getElementById('log-vak').value;
+      const datum   = document.getElementById('log-datum').value;
+      const minuten = parseInt(document.getElementById('log-minuten').value);
+
+      if (!vakId || !datum || !minuten || minuten < 1) {
+        toast('Vul alle velden correct in.', 'err'); return;
+      }
+
+      const user = await huidigGebruiker();
+
+      // Study session opslaan
+      const { error: sessErr } = await db.from('study_sessions').insert({
+        subject_id: vakId, date: datum, duration_minutes: minuten, user_id: user.id
+      });
+      if (sessErr) { toast('Fout: ' + sessErr.message, 'err'); return; }
+
+      // Study_days bijwerken (upsert)
+      const { data: bestaand } = await db.from('study_days').select('id, total_minutes').eq('date', datum).eq('user_id', user.id).single().catch(() => ({ data: null }));
+      if (bestaand) {
+        await db.from('study_days').update({ total_minutes: (bestaand.total_minutes || 0) + minuten }).eq('id', bestaand.id);
+      } else {
+        await db.from('study_days').insert({ date: datum, total_minutes: minuten, user_id: user.id });
+      }
+
+      toast('Studietijd gelogd ✓', 'ok');
+      closeModal('log-modal');
+      document.getElementById('log-minuten').value = '';
+      await Promise.all([laadStreaks(), laadUren(), laadSessies()]);
+    }
+  </script>
+</body>
+</html>
